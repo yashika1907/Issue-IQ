@@ -1,0 +1,2657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Amdocs IssueIQ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#0e0f11;--bg2:#15171a;--bg3:#1c1f23;--bg4:#22262b;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e9eb;--text2:#8a8d93;--text3:#55585f;
+  --purple:#8b7cf8;--purple-dim:rgba(139,124,248,0.12);
+  --coral:#f07060;--teal:#3ecfb0;--amber:#f0a030;--blue:#4fa3e0;
+  --gray-dim:rgba(255,255,255,0.05);
+  --radius:10px;--radius-sm:6px;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;}
+body{
+  background:
+    radial-gradient(900px 420px at 25% -8%, rgba(166,101,255,.22), transparent 58%),
+    radial-gradient(820px 380px at 88% 8%, rgba(79,163,224,.18), transparent 62%),
+    linear-gradient(180deg, #0a0816 0%, #0d0f17 35%, #0d1018 100%);
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size:34px 34px;
+  opacity:.22;
+  mix-blend-mode:screen;
+}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.shell{display:flex;min-height:100vh;}
+.sidebar{
+  width:230px;
+  flex-shrink:0;
+  border-right:1px solid rgba(151,126,255,.28);
+  padding:24px 0;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  background:
+    radial-gradient(120% 70% at 5% 0%, rgba(255,92,186,.16), transparent 60%),
+    radial-gradient(90% 60% at 100% 20%, rgba(83,224,249,.14), transparent 62%),
+    linear-gradient(180deg, #141227 0%, #17172f 40%, #121224 100%);
+  isolation:isolate;
+}
+.sidebar::before{
+  content:"";
+  position:absolute;
+  inset:-30% -55% auto -35%;
+  height:240px;
+  background:radial-gradient(circle, rgba(157,125,255,.28) 0%, rgba(157,125,255,.05) 46%, transparent 72%);
+  filter:blur(10px);
+  animation:sidebarGlow 8s ease-in-out infinite;
+  pointer-events:none;
+  z-index:0;
+}
+.sidebar > *{position:relative;z-index:1;}
+.main{flex:1;padding:32px 36px;min-width:0;}
+.logo{padding:0 14px 18px;margin:0 8px 20px;border-bottom:1px solid rgba(255,255,255,.1);background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border-radius:14px;}
+.logo-brand{display:flex;flex-direction:column;gap:10px;}
+.logo-image{width:75px;height:auto;display:block;object-fit:contain;}
+.logo-sub{font-size:15px;color:#ffffff;margin-top:4px;font-family:var(--font);letter-spacing:.03em;font-weight:800;text-shadow:0 0 18px rgba(180,150,255,.7);}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:0 20px;margin-bottom:6px;margin-top:14px;}
+.analysis-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:#eef1ff;text-shadow:0 0 16px rgba(170,140,255,.45);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--text2);font-size:13px;border-left:2px solid transparent;transition:all .15s;user-select:none;}
+.nav-item:hover{color:var(--text);background:var(--gray-dim);}
+.nav-item.active{color:var(--purple);border-left-color:var(--purple);background:var(--purple-dim);}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0;}
+.nav-item.active .nav-dot{opacity:1;}
+.analysis-item{
+  font-weight:600;
+  color:#d6dbeb;
+  --item-accent:139,124,248;
+  margin:4px 12px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,.14);
+  border-left-color:rgba(var(--item-accent),.55);
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0));
+  transition:transform .16s,box-shadow .2s,border-color .2s,background .2s,color .16s;
+}
+.analysis-item .nav-dot{width:8px;height:8px;opacity:1;background:rgb(var(--item-accent));box-shadow:0 0 10px rgba(var(--item-accent),.65);}
+.analysis-item:hover{
+  background:linear-gradient(90deg,rgba(var(--item-accent),.26),rgba(var(--item-accent),.08));
+  color:#ffffff;
+  border-color:rgba(var(--item-accent),.6);
+  transform:translateX(2px) translateY(-1px);
+  box-shadow:0 8px 22px rgba(0,0,0,.3),0 0 0 1px rgba(var(--item-accent),.24) inset;
+}
+.analysis-item:active{transform:translateX(1px) translateY(0);}
+.analysis-item.active{
+  font-weight:700;
+  color:#ffffff;
+  border-color:rgba(var(--item-accent),.68);
+  border-left-color:rgb(var(--item-accent));
+  background:linear-gradient(90deg,rgba(var(--item-accent),.32),rgba(var(--item-accent),.1));
+  box-shadow:0 10px 24px rgba(0,0,0,.35),0 0 0 1px rgba(var(--item-accent),.3) inset;
+}
+.nav-overview{--item-accent:255,107,179;}
+.nav-charts{--item-accent:255,201,76;}
+.nav-issues{--item-accent:83,224,249;}
+.nav-classifier{--item-accent:112,255,170;}
+.nav-insights{--item-accent:167,140,255;}
+.nav-chatbot{--item-accent:255,140,92;}
+.nav-mailbox{--item-accent:96,200,130;}
+.sidebar-upload{margin:16px 12px 0;border:1px dashed var(--border2);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all .2s;display:block;}
+.sidebar-upload{border-color:rgba(159,131,255,.38);background:linear-gradient(135deg,rgba(153,123,255,.12),rgba(83,224,249,.08));box-shadow:0 10px 22px rgba(0,0,0,.24);}
+.sidebar-upload:hover{border-color:#c18fff;background:linear-gradient(135deg,rgba(186,133,255,.2),rgba(83,224,249,.14));box-shadow:0 12px 26px rgba(0,0,0,.3);}
+.sidebar-upload input{display:none;}
+.sidebar-upload-icon{font-size:20px;margin-bottom:5px;opacity:.45;}
+.sidebar-upload-text{font-size:11px;color:var(--text3);line-height:1.5;}
+.sidebar-upload-text strong{color:var(--text2);}
+.upload-status{font-size:11px;color:#9ff7e2;margin-top:6px;display:none;font-family:var(--mono);}
+
+/* Filter bar */
+.filter-bar{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  background:linear-gradient(135deg, rgba(27,19,51,.86), rgba(26,34,60,.72));
+  border:1px solid rgba(146,119,255,.26);
+  border-radius:14px;
+  padding:12px 14px;
+  margin-bottom:24px;
+  flex-wrap:wrap;
+  box-shadow:0 16px 30px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.filter-bar label{
+  font-size:10px;
+  color:#cad1e4;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:700;
+  white-space:nowrap;
+  padding:6px 10px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;
+  background:rgba(255,255,255,.04);
+}
+.filter-bar select,.filter-bar input[type=text]{
+  padding:8px 12px;
+  border:1px solid rgba(150,125,255,.28);
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(19,23,41,.88),rgba(14,16,30,.9));
+  color:#d8def0;
+  font-size:12px;
+  font-family:var(--font);
+  outline:none;
+  transition:border-color .2s,box-shadow .2s,transform .15s;
+}
+.filter-bar select{min-width:132px;}
+.filter-bar input[type=text]{min-width:150px;}
+.filter-bar select option{
+  color:#e6e9f7;
+  background:#16182f;
+}
+.filter-bar select option:checked,
+.filter-bar select option:hover{
+  color:#ffffff;
+  background:#8b7cf8;
+}
+.filter-bar select option:disabled{
+  color:#8a8d93;
+  background:#16182f;
+}
+.filter-bar select:focus,.filter-bar input:focus{
+  border-color:#a996ff;
+  color:#f4f6ff;
+  box-shadow:0 0 0 3px rgba(139,124,248,.2), 0 0 14px rgba(139,124,248,.22);
+}
+.filter-reset{
+  padding:8px 14px;
+  border:1px solid rgba(255,122,168,.34);
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(255,84,170,.22), rgba(155,92,255,.18));
+  color:#ffd9ea;
+  font-size:12px;
+  font-family:var(--font);
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.filter-reset:hover{
+  color:#fff;
+  border-color:rgba(255,122,168,.56);
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(255,80,160,.22);
+}
+.filter-export{
+  padding:8px 14px;
+  border:1px solid rgba(83,224,249,.34);
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(83,224,249,.2), rgba(139,124,248,.16));
+  color:#d8f5ff;
+  font-size:12px;
+  font-family:var(--font);
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.filter-export:hover{
+  color:#fff;
+  border-color:rgba(83,224,249,.56);
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(83,224,249,.22);
+}
+.filter-pdf{
+  padding:8px 14px;
+  border:1px solid rgba(124,228,152,.34);
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(69,204,128,.2), rgba(80,190,224,.14));
+  color:#d6ffea;
+  font-size:12px;
+  font-family:var(--font);
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.filter-pdf:hover{
+  color:#fff;
+  border-color:rgba(124,228,152,.58);
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(69,204,128,.24);
+}
+.filter-pdf:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
+.filter-logout{
+  padding:8px 14px;
+  border:1px solid rgba(240,112,96,.35);
+  border-radius:999px;
+  background:linear-gradient(135deg, rgba(240,112,96,.2), rgba(230,96,144,.14));
+  color:#ff9e92;
+  font-size:12px;
+  font-family:var(--font);
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  white-space:nowrap;
+}
+.filter-logout:hover{
+  color:#fff;
+  border-color:rgba(240,112,96,.58);
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(240,112,96,.3);
+}
+.filter-count{
+  font-size:11px;
+  color:#d4d9e8;
+  font-family:var(--mono);
+  white-space:nowrap;
+  margin-left:auto;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.04);
+}
+
+/* Global interactive polish */
+button, select, input, textarea {
+  transition:all .2s ease;
+}
+
+/* Page */
+.page-header{
+  margin-bottom:24px;
+  position:relative;
+  padding:18px 20px;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid rgba(146,119,255,.28);
+  background:
+    linear-gradient(135deg, rgba(28,16,58,.86) 0%, rgba(34,22,71,.76) 40%, rgba(23,35,68,.72) 100%),
+    radial-gradient(150% 100% at 8% 0%, rgba(255,76,172,.12), transparent 56%),
+    radial-gradient(110% 100% at 92% 100%, rgba(70,199,255,.14), transparent 64%);
+  box-shadow:0 18px 44px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.page-header::before{
+  content:"";
+  position:absolute;
+  top:-40%;
+  left:-18%;
+  width:42%;
+  height:180%;
+  background:linear-gradient(100deg, rgba(255,255,255,0) 10%, rgba(255,255,255,.23) 48%, rgba(255,255,255,0) 86%);
+  transform:rotate(14deg);
+  animation:headerShimmer 5.5s ease-in-out infinite;
+  pointer-events:none;
+}
+.page-title{
+  font-size:42px;
+  line-height:1.05;
+  font-weight:700;
+  letter-spacing:-.02em;
+  color:transparent;
+  background:linear-gradient(90deg,#f7f8ff 0%, #53e0f9 32%, #8ea2ff 64%, #f25bc5 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  text-shadow:none;
+}
+.page-sub{font-size:13px;color:#bac2d7;margin-top:8px;max-width:760px;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+.metric-card{background:linear-gradient(180deg,rgba(31,22,55,.82),rgba(22,18,38,.85));border:1px solid rgba(144,122,250,.24);border-radius:14px;padding:16px 18px;transition:border-color .2s,transform .2s,box-shadow .2s;box-shadow:0 12px 24px rgba(0,0,0,.24);}
+.metric-card:hover{border-color:rgba(154,137,255,.48);transform:translateY(-2px);box-shadow:0 16px 28px rgba(0,0,0,.32);}
+.metric-label{font-size:11px;font-weight:600;color:#9ea6bc;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;}
+.metric-value{font-size:38px;font-weight:700;color:#f4f6ff;font-family:var(--mono);line-height:1;}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:5px;}
+.metric-card.a-p{border-color:rgba(139,124,248,.3);}
+.metric-card.a-t{border-color:rgba(62,207,176,.3);}
+.metric-card.a-a{border-color:rgba(240,160,48,.3);}
+.metric-card.a-c{border-color:rgba(240,112,96,.3);}
+.data-quality-card{margin-bottom:22px;}
+.dq-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.dq-score{font-size:28px;font-weight:700;font-family:var(--mono);line-height:1;color:#8ff0d8;}
+.dq-score.warn{color:#ffd28a;}
+.dq-score.bad{color:#ff9e92;}
+.dq-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.dq-item{padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);}
+.dq-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#9ea6bc;font-weight:700;}
+.dq-value{font-size:18px;font-family:var(--mono);color:#eef1ff;margin-top:4px;line-height:1.1;}
+.dq-note{font-size:11px;color:#8a8d93;margin-top:3px;}
+.card{background:linear-gradient(180deg,rgba(28,23,51,.78),rgba(20,18,37,.82));border:1px solid rgba(132,114,234,.2);border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 14px 30px rgba(0,0,0,.24);}
+.card:hover{border-color:rgba(168,142,255,.32);box-shadow:0 18px 34px rgba(0,0,0,.3);}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.card-title{font-size:12px;font-weight:700;color:#e8ebf8;text-transform:uppercase;letter-spacing:.08em;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+.chart-wrap{position:relative;}
+.h200{height:200px;}.h220{height:220px;}.h260{height:260px;}.h300{height:300px;}
+
+/* Bars */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;}
+.bar-row:last-child{margin-bottom:0;}
+.bar-name{width:115px;flex-shrink:0;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:999px;transition:width .5s cubic-bezier(.4,0,.2,1);box-shadow:0 0 12px rgba(255,255,255,.2);}
+.bar-count{width:22px;text-align:right;color:var(--text);font-family:var(--mono);font-weight:500;flex-shrink:0;}
+
+/* Table */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{text-align:left;color:#d5dbee;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:0 12px 12px;border-bottom:1px solid rgba(173,146,255,.24);cursor:pointer;user-select:none;white-space:nowrap;}
+thead th:hover{color:var(--text2);}
+.sort-asc::after{content:" ↑";}.sort-desc::after{content:" ↓";}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.08);transition:background .15s,transform .12s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:linear-gradient(90deg,rgba(138,124,248,.1),rgba(138,124,248,.03));transform:translateX(1px);}
+tbody td{padding:10px 12px;color:var(--text2);vertical-align:top;}
+.empty-row td{text-align:center;color:var(--text3);padding:28px;}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;font-family:var(--mono);white-space:nowrap;letter-spacing:.02em;}
+.badge-db{background:linear-gradient(135deg,rgba(139,124,248,.3),rgba(139,124,248,.14));color:#d2cbff;border:1px solid rgba(139,124,248,.4);}
+.badge-order{background:linear-gradient(135deg,rgba(240,112,96,.26),rgba(240,112,96,.14));color:#ffc6bf;border:1px solid rgba(240,112,96,.34);}
+.badge-device{background:linear-gradient(135deg,rgba(62,207,176,.26),rgba(62,207,176,.12));color:#bff5e6;border:1px solid rgba(62,207,176,.34);}
+.badge-auth{background:linear-gradient(135deg,rgba(240,160,48,.26),rgba(240,160,48,.12));color:#ffe0b5;border:1px solid rgba(240,160,48,.34);}
+.badge-app{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));color:#d2d7e7;border:1px solid rgba(255,255,255,.14);}
+
+/* Search + pagination */
+.search-input{width:100%;padding:10px 14px;border:1px solid rgba(151,126,255,.3);border-radius:12px;background:linear-gradient(180deg,rgba(19,23,41,.9),rgba(14,16,30,.94));color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s,box-shadow .2s;margin-bottom:12px;}
+.search-input:focus{border-color:#ac98ff;box-shadow:0 0 0 3px rgba(139,124,248,.2), 0 0 14px rgba(139,124,248,.22);}
+.search-input::placeholder{color:var(--text3);}
+.pagination{display:flex;gap:5px;align-items:center;margin-top:12px;justify-content:center;flex-wrap:wrap;}
+.page-btn{padding:6px 11px;border:1px solid rgba(151,126,255,.24);border-radius:999px;background:rgba(255,255,255,.04);color:#d3d9eb;font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .18s;}
+.page-btn:hover{border-color:rgba(166,141,255,.5);color:#fff;transform:translateY(-1px);}
+.page-btn.active{background:linear-gradient(135deg,#9a7dff,#6c5de8);color:#fff;border-color:#a88fff;box-shadow:0 10px 20px rgba(109,90,219,.35);}
+.page-btn:disabled{opacity:.3;cursor:default;}
+.page-info{font-size:11px;color:var(--text3);font-family:var(--mono);}
+
+/* Classifier */
+.classifier-input{width:100%;padding:14px 15px;background:linear-gradient(180deg,rgba(19,23,41,.92),rgba(14,16,30,.95));border:1px solid rgba(151,126,255,.32);border-radius:12px;color:var(--text);font-size:14px;font-family:var(--font);resize:vertical;min-height:86px;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.6;}
+.classifier-input:focus{border-color:#ac98ff;box-shadow:0 0 0 3px rgba(139,124,248,.2), 0 0 14px rgba(139,124,248,.22);}
+.classifier-input::placeholder{color:var(--text3);}
+.classify-btn{margin-top:11px;padding:10px 24px;background:linear-gradient(135deg,#9a7dff,#5d56e4);color:#fff;border:none;border-radius:999px;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:opacity .2s,transform .12s,box-shadow .2s;box-shadow:0 10px 20px rgba(100,84,219,.32);}
+.classify-btn:hover{opacity:.96;transform:translateY(-1px);box-shadow:0 14px 24px rgba(100,84,219,.38);}.classify-btn:active{transform:scale(.98);}
+.examples-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px;}
+.example-chip{padding:7px 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.04);color:#c9d0e4;font-size:12px;font-family:var(--font);cursor:pointer;transition:all .2s;}
+.example-chip:hover{border-color:rgba(154,137,255,.58);color:#fff;background:linear-gradient(135deg,rgba(138,124,248,.24),rgba(138,124,248,.1));transform:translateY(-1px);}
+.result-panel{margin-top:16px;padding:17px 19px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);display:none;}
+.result-panel.show{display:block;animation:fadeIn .2s;}
+.result-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.result-row:last-of-type{border-bottom:none;}
+.result-key{color:var(--text3);font-family:var(--mono);font-size:11px;}
+.result-val{color:var(--text);font-weight:500;text-align:right;max-width:65%;}
+.confidence-wrap{margin-top:13px;}
+.confidence-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px;}
+.confidence-track{height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
+.confidence-fill{height:100%;border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+
+/* Chatbot */
+.chat-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.9fr);gap:16px;align-items:start;}
+.chat-shell{background:linear-gradient(180deg,rgba(35,27,64,.92),rgba(23,21,43,.94));border:1px solid rgba(149,124,248,.28);border-radius:14px;overflow:hidden;box-shadow:0 18px 36px rgba(0,0,0,.32);}
+.chat-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+.chat-title{font-size:14px;font-weight:600;color:var(--text);}
+.chat-sub{font-size:12px;color:var(--text3);margin-top:3px;}
+.chat-pill{padding:6px 10px;border:1px solid rgba(62,207,176,.35);border-radius:999px;background:rgba(62,207,176,.13);color:#a9f4e1;font-size:11px;font-family:var(--mono);white-space:normal;word-break:break-word;max-width:260px;line-height:1.45;}
+.chat-body{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-height:420px;max-height:560px;overflow-y:auto;}
+.chat-msg{display:flex;gap:10px;align-items:flex-start;}
+.chat-msg.user{justify-content:flex-end;}
+.chat-avatar{width:30px;height:30px;flex-shrink:0;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:var(--mono);background:var(--bg4);color:var(--text2);border:1px solid var(--border);}
+.chat-msg.user .chat-avatar{order:2;background:rgba(139,124,248,.18);color:var(--purple);border-color:rgba(139,124,248,.25);}
+.chat-bubble{max-width:min(88%,640px);padding:13px 14px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.16);color:#d8deef;line-height:1.65;font-size:13px;white-space:pre-line;}
+.chat-msg.user .chat-bubble{background:linear-gradient(135deg,rgba(154,125,255,.28),rgba(109,87,232,.2));border-color:rgba(165,141,255,.4);color:#fff;}
+.chat-bubble strong{color:var(--text);font-weight:600;}
+.chat-actions{padding:0 20px 18px;display:flex;flex-direction:column;gap:10px;}
+.chat-quick{display:flex;flex-wrap:wrap;gap:8px;}
+.chat-chip{padding:8px 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.04);color:#d2d8eb;font-size:12px;font-family:var(--font);cursor:pointer;transition:all .18s;}
+.chat-chip:hover{border-color:rgba(154,137,255,.58);color:#fff;background:linear-gradient(135deg,rgba(138,124,248,.24),rgba(138,124,248,.1));}
+.chat-form{display:flex;gap:10px;align-items:stretch;}
+.chat-input{flex:1;padding:12px 14px;border:1px solid rgba(151,126,255,.34);border-radius:10px;background:linear-gradient(180deg,rgba(19,23,41,.9),rgba(14,16,30,.94));color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s,box-shadow .2s;}
+.chat-input:focus{border-color:#ac98ff;box-shadow:0 0 0 3px rgba(139,124,248,.2);}
+.chat-send{padding:0 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#9a7dff,#5d56e4);color:#fff;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:opacity .2s,transform .12s,box-shadow .2s;box-shadow:0 10px 18px rgba(100,84,219,.34);}
+.chat-send:hover{opacity:.92;}
+.chat-send:active{transform:scale(.98);}
+.chat-send:disabled{opacity:.45;cursor:default;transform:none;}
+.chat-side-card{background:linear-gradient(180deg,rgba(30,26,54,.85),rgba(22,20,41,.88));border:1px solid rgba(145,121,245,.24);border-radius:12px;padding:18px 20px;}
+.chat-side-title{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px;}
+.chat-side-list{display:flex;flex-direction:column;gap:10px;}
+.chat-side-item{padding:12px 13px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));}
+.chat-side-item{cursor:pointer;transition:border-color .18s,background .18s,transform .15s;}
+.chat-side-item:hover{border-color:rgba(154,137,255,.58);background:linear-gradient(135deg,rgba(138,124,248,.24),rgba(138,124,248,.1));transform:translateY(-1px);}
+.chat-side-item strong{display:block;font-size:12px;color:var(--text);margin-bottom:4px;}
+.chat-side-item span{font-size:12px;color:var(--text3);line-height:1.6;}
+.chat-fab{
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:40;
+  border:1px solid rgba(197,170,255,.58);
+  border-radius:999px;
+  background:
+    linear-gradient(135deg,#ff5ebf 0%, #a16cff 48%, #5c8dff 100%);
+  color:#fff;
+  padding:14px 18px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.02em;
+  font-family:var(--font);
+  box-shadow:0 20px 44px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.16) inset;
+  cursor:pointer;
+  transition:transform .18s, box-shadow .22s, filter .2s;
+  overflow:hidden;
+}
+.chat-fab::before{
+  content:"";
+  position:absolute;
+  top:-140%;
+  left:-35%;
+  width:42%;
+  height:320%;
+  background:linear-gradient(110deg, rgba(255,255,255,0) 12%, rgba(255,255,255,.42) 48%, rgba(255,255,255,0) 88%);
+  transform:rotate(14deg);
+  transition:transform .5s ease, left .5s ease;
+}
+.chat-fab:hover{
+  transform:translateY(-2px) scale(1.02);
+  box-shadow:0 24px 52px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.2) inset, 0 0 30px rgba(161,108,255,.45);
+  filter:saturate(1.08);
+}
+.chat-fab:hover::before{left:112%;}
+.chat-fab:active{transform:translateY(0) scale(.99);}
+.chat-fab-mark{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.8), rgba(255,255,255,.18) 55%, rgba(255,255,255,.06) 100%);
+  border:1px solid rgba(255,255,255,.45);
+  box-shadow:0 0 12px rgba(255,255,255,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:700;
+}
+.chat-popup{position:fixed;right:22px;bottom:82px;width:min(460px,calc(100vw - 24px));max-height:min(78vh,720px);z-index:45;display:none;transition:all .25s cubic-bezier(.4,0,.2,1);}
+.chat-popup.maximized{right:12px;bottom:12px;width:calc(100vw - 24px);max-height:calc(100vh - 24px);}
+.chat-popup.maximized .chat-shell{max-height:calc(100vh - 24px);}
+.chat-popup.maximized .chat-body{min-height:55vh;}
+.chat-maximize{width:30px;height:30px;flex-shrink:0;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text2);font-size:14px;line-height:1;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.chat-maximize:hover{color:var(--text);border-color:var(--border2);background:var(--gray-dim);}
+.chat-popup.open{display:block;animation:fadeIn .18s;}
+.chat-popup .chat-shell{box-shadow:0 28px 70px rgba(0,0,0,.42);backdrop-filter:blur(10px);display:flex;flex-direction:column;max-height:min(78vh,720px);}
+.chat-popup .chat-head{flex-shrink:0;position:sticky;top:0;z-index:3;background:rgba(20,18,38,.96);backdrop-filter:blur(8px);}
+.chat-popup .chat-body{flex:1;min-height:220px;max-height:none;overflow-y:auto;}
+.chat-popup .chat-quick{max-height:120px;overflow-y:auto;padding-right:4px;align-content:flex-start;}
+.chat-popup .chat-side-list{max-height:170px;overflow-y:auto;padding-right:4px;}
+.chat-popup-close{width:30px;height:30px;flex-shrink:0;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text2);font-size:18px;line-height:1;cursor:pointer;transition:all .15s;}
+.chat-popup-close:hover{color:var(--text);border-color:var(--border2);background:var(--gray-dim);}
+.chat-popup-backdrop{position:fixed;inset:0;background:rgba(8,9,11,.38);backdrop-filter:blur(3px);z-index:44;display:none;}
+.chat-popup-backdrop.open{display:block;}
+
+/* Insights */
+.insight{border-left:3px solid;padding:14px 18px;margin-bottom:11px;border-radius:0 12px 12px 0;background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-top:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);box-shadow:0 10px 22px rgba(0,0,0,.22);}
+.insight-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.insight-body{font-size:13px;color:var(--text2);line-height:1.65;}
+.risk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;position:relative;}
+.risk-card{background:linear-gradient(180deg,rgba(30,24,54,.84),rgba(20,19,37,.86));border:1px solid rgba(145,121,245,.24);border-radius:12px;padding:13px 15px;transition:border-color .25s,transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s,background .25s,padding .25s,font-size .25s;box-shadow:0 12px 22px rgba(0,0,0,.2);cursor:default;position:relative;z-index:1;}
+.risk-card:hover{border-color:rgba(172,145,255,.75);transform:scale(1.18);box-shadow:0 24px 52px rgba(0,0,0,.45),0 0 0 2px rgba(172,145,255,.35),0 0 30px rgba(139,124,248,.35);background:linear-gradient(180deg,rgba(50,38,90,.96),rgba(34,28,66,.98));z-index:10;padding:18px 20px;}
+.risk-card:hover .risk-app{font-size:14px;color:#e8ebf8;}
+.risk-card:hover .risk-count{font-size:34px;}
+.risk-card:hover .risk-tag{font-size:12px;color:#c8c0e8;}
+.risk-app{font-size:12px;font-weight:600;color:var(--text2);font-family:var(--mono);}
+.risk-count{font-size:24px;font-weight:600;font-family:var(--mono);margin:4px 0;}
+.risk-tag{font-size:11px;color:var(--text3);}
+
+/* App insight popup */
+.app-insight-popup{
+  position:fixed;
+  z-index:9999;
+  min-width:260px;
+  max-width:320px;
+  background:linear-gradient(160deg,rgba(28,22,58,.98),rgba(18,16,40,.99));
+  border:1px solid rgba(172,145,255,.55);
+  border-radius:14px;
+  padding:16px 18px;
+  box-shadow:0 28px 60px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06) inset;
+  pointer-events:none;
+  opacity:0;
+  transform:scale(.94) translateY(6px);
+  transition:opacity .2s,transform .2s cubic-bezier(.34,1.4,.64,1);
+  backdrop-filter:blur(12px);
+}
+.app-insight-popup.visible{
+  opacity:1;
+  transform:scale(1) translateY(0);
+}
+.aip-title{font-size:13px;font-weight:800;color:#e8ebf8;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;letter-spacing:.01em;}
+.aip-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-size:12px;gap:12px;}
+.aip-label{color:#9ea6bc;flex-shrink:0;}
+.aip-val{color:#e8ebf8;font-weight:600;font-family:var(--mono);text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aip-section{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7875a8;margin:10px 0 5px;}
+.aip-issue{font-size:11px;color:#c0c8e0;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.4;}
+.aip-issue:last-child{border-bottom:none;}
+.summary-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.summary-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.summary-btn{padding:8px 14px;border:1px solid rgba(139,124,248,.35);border-radius:999px;background:linear-gradient(135deg,rgba(139,124,248,.25),rgba(109,87,232,.16));color:#e8e1ff;font-size:12px;font-family:var(--font);font-weight:600;cursor:pointer;transition:all .2s;}
+.summary-btn:hover{color:#fff;border-color:rgba(165,141,255,.56);transform:translateY(-1px);box-shadow:0 8px 18px rgba(139,124,248,.22);}
+.summary-btn.copy{border-color:rgba(83,224,249,.35);background:linear-gradient(135deg,rgba(83,224,249,.22),rgba(62,207,176,.14));color:#d6f8ff;}
+.summary-output{border:1px solid rgba(255,255,255,.14);border-radius:12px;background:linear-gradient(180deg,rgba(19,23,41,.9),rgba(14,16,30,.94));padding:14px 15px;min-height:138px;white-space:pre-line;line-height:1.72;color:#d6ddef;font-size:13px;}
+.overview-playbook{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:16px;align-items:start;}
+.overview-column-title{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}
+.overview-column-title.issues{color:#ff7d66;}
+.overview-column-title.steps{color:#48db97;}
+.overview-column-mark{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:11px;font-family:var(--mono);font-weight:700;border:1px solid currentColor;opacity:.9;}
+.overview-stack{display:flex;flex-direction:column;gap:10px;}
+.overview-story-card{background:linear-gradient(180deg,rgba(27,34,57,.92),rgba(22,28,48,.96));border:1px solid rgba(98,126,200,.22);border-radius:12px;padding:14px 16px;box-shadow:0 12px 24px rgba(0,0,0,.2);}
+.overview-story-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.overview-story-icon{width:18px;flex-shrink:0;color:#9aa7d1;font-size:12px;line-height:1.4;padding-top:1px;}
+.overview-story-title{font-size:14px;font-weight:700;color:#e9edfb;line-height:1.35;}
+.overview-story-body{font-size:12px;line-height:1.6;color:#9ea8c7;}
+.overview-tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.overview-tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:rgba(255,255,255,.04);color:#d5dcf0;}
+.overview-tag.critical{background:rgba(240,112,96,.14);border-color:rgba(240,112,96,.24);color:#ff9e92;}
+.overview-tag.high{background:rgba(240,160,48,.14);border-color:rgba(240,160,48,.24);color:#ffd28a;}
+.overview-tag.medium{background:rgba(79,163,224,.14);border-color:rgba(79,163,224,.24);color:#98cfff;}
+.overview-step-card{background:linear-gradient(180deg,rgba(27,34,57,.92),rgba(22,28,48,.96));border:1px solid rgba(98,126,200,.22);border-radius:12px;padding:14px 16px;display:flex;gap:12px;box-shadow:0 12px 24px rgba(0,0,0,.2);}
+.overview-step-no{width:24px;height:24px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6d7ef8,#4d65e7);color:#fff;font-size:11px;font-weight:800;font-family:var(--mono);margin-top:2px;}
+.overview-step-content{min-width:0;}
+.overview-step-title{font-size:14px;font-weight:700;color:#e9edfb;line-height:1.35;margin-bottom:6px;}
+.overview-step-body{font-size:12px;line-height:1.6;color:#9ea8c7;}
+.overview-empty{padding:18px 16px;border-radius:12px;border:1px dashed rgba(255,255,255,.14);background:rgba(255,255,255,.03);font-size:12px;color:var(--text2);}
+.fix-card{
+  max-width:920px;
+  margin:0 auto 18px;
+  border:1px solid rgba(255,195,96,.55);
+  background:
+    radial-gradient(130% 130% at 0% 0%, rgba(255,195,96,.2), transparent 55%),
+    linear-gradient(145deg, rgba(61,43,18,.75), rgba(35,24,12,.85));
+  box-shadow:0 20px 42px rgba(0,0,0,.34), 0 0 0 1px rgba(255,214,143,.24) inset;
+}
+.fix-title{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#ffe7b5;}
+.fix-text{font-size:14px;color:#ffe3b0;line-height:1.72;white-space:pre-line;}
+
+/* RCA table */
+.rca-table{width:100%;border-collapse:collapse;font-size:12px;}
+.rca-table th{text-align:left;padding:0 10px 10px;color:var(--text3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);}
+.rca-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
+.rca-table tr:last-child td{border-bottom:none;}
+.heat-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:2px;}
+
+/* Upload page */
+.upload-drop{border:1px dashed rgba(173,146,255,.5);border-radius:14px;padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s;max-width:520px;margin:0 auto;display:block;background:linear-gradient(135deg,rgba(154,125,255,.14),rgba(83,224,249,.08));box-shadow:0 14px 30px rgba(0,0,0,.26);}
+.upload-drop:hover,.upload-drop.drag-over{border-color:#c6a5ff;background:linear-gradient(135deg,rgba(154,125,255,.24),rgba(83,224,249,.14));box-shadow:0 18px 34px rgba(0,0,0,.32);}
+.upload-drop input{display:none;}
+.upload-big-icon{font-size:38px;margin-bottom:14px;opacity:.4;}
+.upload-drop-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:7px;}
+.upload-drop-sub{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6;}
+.upload-cta{display:inline-block;padding:10px 24px;background:linear-gradient(135deg,#9a7dff,#5d56e4);color:#fff;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 10px 18px rgba(100,84,219,.34);}
+.upload-fmt{font-size:12px;color:var(--text3);margin-top:14px;font-family:var(--mono);}
+.mapping-wrap{max-width:520px;margin:22px auto 0;}
+.map-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:13px;}
+.map-label{width:160px;flex-shrink:0;color:var(--text2);}
+.map-select{flex:1;padding:8px 12px;border:1px solid rgba(151,126,255,.32);border-radius:10px;background:linear-gradient(180deg,rgba(19,23,41,.9),rgba(14,16,30,.94));color:#e6e9f7;font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s,box-shadow .2s;color-scheme:dark;-webkit-appearance:none;appearance:none;}
+.map-select:focus{border-color:#ac98ff;box-shadow:0 0 0 3px rgba(139,124,248,.2);}
+.map-select option{background-color:#15182e !important;color:#e6e9f7 !important;}
+.map-select option:hover,.map-select option:focus,.map-select option:checked{background:#8b7cf8 !important;color:#ffffff !important;}
+.map-select option:disabled{background:#15182e !important;color:#8a8d93 !important;}
+.apply-btn{display:block;margin:18px auto 0;padding:11px 34px;background:linear-gradient(135deg,#35d8b8,#24b89a);color:#08281f;border:none;border-radius:999px;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:transform .15s,box-shadow .2s;box-shadow:0 10px 20px rgba(39,195,159,.3);}
+.apply-btn:hover{transform:translateY(-1px);box-shadow:0 14px 24px rgba(39,195,159,.36);}
+
+/* Sections */
+.section{display:none;}
+.section.active{display:block;animation:fadeIn .2s;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+@keyframes headerShimmer{
+  0%{left:-36%;opacity:0;}
+  10%{opacity:.65;}
+  55%{opacity:.4;}
+  100%{left:122%;opacity:0;}
+}
+@keyframes sidebarGlow{
+  0%,100%{transform:translateX(0) translateY(0);opacity:.55;}
+  50%{transform:translateX(8px) translateY(4px);opacity:.9;}
+}
+.loading{color:var(--text3);font-family:var(--mono);font-size:12px;}
+.blink{animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@media (max-width:1100px){
+  .metrics,.risk-grid,.grid-2,.grid-3,.chat-layout{grid-template-columns:1fr 1fr;}
+  .chat-layout{grid-template-columns:1fr;}
+  .dq-grid{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:820px){
+  .shell{display:block;}
+  .sidebar{width:100%;height:auto;position:static;border-right:none;border-bottom:1px solid var(--border);}
+  .main{padding:24px 18px 30px;}
+  .metrics,.risk-grid,.grid-2,.grid-3{grid-template-columns:1fr;}
+  .dq-grid{grid-template-columns:1fr;}
+  .overview-playbook{grid-template-columns:1fr;}
+  .chat-form{flex-direction:column;}
+  .chat-send{padding:12px 18px;}
+  .chat-fab{right:14px;bottom:14px;padding:13px 15px;}
+  .chat-popup{right:12px;left:12px;bottom:76px;width:auto;}
+  .chat-popup .chat-shell{max-height:min(74vh,640px);}
+  .chat-popup .chat-body{min-height:180px;}
+  .chat-popup .chat-actions{max-height:40vh;}
+  .chat-popup .chat-quick{max-height:96px;}
+  .chat-popup .chat-side-list{max-height:132px;}
+  .page-title{font-size:34px;}
+  .filter-bar{padding:10px 10px;}
+  .filter-bar label{display:none;}
+}
+
+/* ══ AUTH MODAL ══ */
+.auth-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;}
+.auth-modal.hidden{display:none;}
+.auth-box{background:linear-gradient(180deg,rgba(28,23,51,.95),rgba(20,18,37,.98));border:1px solid rgba(149,124,248,.36);border-radius:16px;padding:42px 38px;width:min(420px,calc(100vw - 32px));box-shadow:0 32px 72px rgba(0,0,0,.48);}
+.auth-title{font-size:24px;font-weight:700;color:#e8ebf8;margin-bottom:8px;letter-spacing:-.01em;}
+.auth-sub{font-size:13px;color:#8a8d93;margin-bottom:28px;}
+.auth-form{display:flex;flex-direction:column;gap:14px;}
+.auth-field{display:flex;flex-direction:column;gap:6px;}
+.auth-field label{font-size:12px;font-weight:600;color:#9ea6bc;text-transform:uppercase;letter-spacing:.05em;}
+.auth-field input{padding:11px 14px;border:1px solid rgba(151,126,255,.32);border-radius:10px;background:linear-gradient(180deg,rgba(19,23,41,.92),rgba(14,16,30,.95));color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s,box-shadow .2s;}
+.auth-field input:focus{border-color:#ac98ff;box-shadow:0 0 0 3px rgba(139,124,248,.2), 0 0 14px rgba(139,124,248,.22);}
+.auth-field input::placeholder{color:var(--text3);}
+.auth-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#d3d9eb;margin:-4px 0 10px;}
+.auth-check input{width:16px;height:16px;cursor:pointer;accent-color:#9a7dff;}
+.auth-btn{padding:12px 16px;background:linear-gradient(135deg,#9a7dff,#5d56e4);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:opacity .2s,transform .12s,box-shadow .2s;box-shadow:0 10px 20px rgba(100,84,219,.32);}
+.auth-btn:hover{opacity:.96;transform:translateY(-1px);box-shadow:0 14px 24px rgba(100,84,219,.38);}
+.auth-btn:active{transform:scale(.98);}
+.auth-btn.secondary{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#d2d7e7;box-shadow:none;}
+.auth-btn.secondary:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26);}
+.auth-toggle{text-align:center;margin-top:18px;font-size:13px;color:#8a8d93;}
+.auth-toggle a{color:#9a7dff;cursor:pointer;font-weight:600;transition:color .2s;}
+.auth-toggle a:hover{color:#b5a3ff;text-decoration:underline;}
+.auth-error{padding:10px 12px;border-radius:8px;background:rgba(240,112,96,.14);border:1px solid rgba(240,112,96,.28);color:#ff9e92;font-size:12px;margin-bottom:10px;display:none;}
+.auth-error.show{display:block;}
+
+@media (max-width:820px){
+  .user-profile{flex-direction:column;align-items:flex-start;gap:12px;}
+  .logout-btn{width:100%;}
+}
+
+/* ══ USER PROFILE HEADER ══ */
+.user-profile{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid rgba(151,126,255,.2);background:linear-gradient(180deg,rgba(31,22,55,.6),rgba(22,18,38,.7));border-radius:12px;margin-bottom:20px;}
+.user-profile.hidden{display:none !important;}
+.user-info{display:flex;align-items:center;gap:12px;}
+.user-avatar{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#9a7dff,#6c5de8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;font-family:var(--mono);flex-shrink:0;}
+.user-details h4{font-size:13px;font-weight:700;color:#e8ebf8;margin:0;}
+.user-details p{font-size:11px;color:#8a8d93;margin:2px 0 0;}
+.logout-btn{padding:7px 14px;border:1px solid rgba(240,112,96,.35);border-radius:8px;background:rgba(240,112,96,.1);color:#ff9e92;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.logout-btn:hover{background:rgba(240,112,96,.18);border-color:rgba(240,112,96,.55);}
+
+</style>
+</head>
+<body>
+<!-- ══ AUTH MODAL ══ -->
+<div class="auth-modal" id="auth-modal">
+  <div class="auth-box">
+    <div class="auth-title" id="auth-title">Sign In</div>
+    <div class="auth-sub" id="auth-sub">Access your Amdocs IssueIQ Dashboard</div>
+    <div class="auth-error" id="auth-error"></div>
+    <form class="auth-form" id="auth-form" onsubmit="handleAuthSubmit(event)">
+      <div class="auth-field">
+        <label for="auth-username">Username or Email</label>
+        <input type="text" id="auth-username" placeholder="Enter username" required/>
+      </div>
+      <div class="auth-field">
+        <label for="auth-password">Password</label>
+        <input type="password" id="auth-password" placeholder="Enter password" required/>
+      </div>
+      <div class="auth-field" id="auth-confirm-field" style="display:none;">
+        <label for="auth-confirm">Confirm Password</label>
+        <input type="password" id="auth-confirm" placeholder="Confirm password"/>
+      </div>
+      <label class="auth-check">
+        <input type="checkbox" id="auth-remember" checked/>
+        <span>Remember me</span>
+      </label>
+      <button type="submit" class="auth-btn" id="auth-submit">Sign In</button>
+    </form>
+    <div class="auth-toggle">
+      <span id="auth-toggle-text">Don't have an account? <a onclick="toggleAuthMode()">Create one</a></span>
+    </div>
+  </div>
+</div>
+
+<div class="shell" id="dashboard">
+
+<!-- ══ SIDEBAR ══ -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-brand">
+      <img class="logo-image" src="unnamed.png" alt="Amdocs logo"/>
+      <div class="logo-sub">Amdocs IssueIQ</div>
+      <div style="font-size:11px;color:#a89ee0;font-family:var(--mono);letter-spacing:.06em;margin-top:2px;">v1.0</div>
+    </div>
+  </div>
+  <div class="nav-label analysis-label">Analysis</div>
+  <div class="nav-item analysis-item nav-overview active" onclick="gotoTab('overview')"><div class="nav-dot"></div>Overview</div>
+  <div class="nav-item analysis-item nav-charts" onclick="gotoTab('charts')"><div class="nav-dot"></div>Charts</div>
+  <div class="nav-item analysis-item nav-issues" onclick="gotoTab('issues')"><div class="nav-dot"></div>Issue Explorer</div>
+  <div class="nav-item analysis-item nav-classifier" onclick="gotoTab('classifier')"><div class="nav-dot"></div>AI Classifier</div>
+  <div class="nav-item analysis-item nav-insights" onclick="gotoTab('insights')"><div class="nav-dot"></div>Insights</div>
+  <div class="nav-item analysis-item nav-chatbot" onclick="openChatPopup()"><div class="nav-dot"></div>AI Chatbot</div>
+  <div class="nav-item analysis-item nav-mailbox" onclick="gotoTab('mailbox')"><div class="nav-dot"></div>Mail Box</div>
+  <div class="nav-label">Data</div>
+  <div class="nav-item" onclick="gotoTab('upload')"><div class="nav-dot"></div>Upload Dataset</div>
+  <div class="nav-label">Account</div>
+  <div class="nav-item" onclick="gotoTab('myprofile')"><div class="nav-dot"></div>My Profile</div>
+  <label class="sidebar-upload" id="sb-zone">
+    <input type="file" id="sb-file" accept=".csv,.tsv,.txt,.xlsx,.xls"/>
+    <div class="sidebar-upload-icon">⬆</div>
+    <div class="sidebar-upload-text"><strong>Drop dataset</strong><br/>CSV, TSV, TXT, XLSX</div>
+    <div class="upload-status" id="sb-status"></div>
+  </label>
+</nav>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+
+  <!-- ══ USER PROFILE ══ -->
+  <div class="user-profile hidden" id="user-profile">
+    <div class="user-info">
+      <div class="user-avatar" id="user-avatar">U</div>
+      <div class="user-details">
+        <h4 id="user-name">User</h4>
+        <p id="user-role">User</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="filter-export" onclick="gotoTab('myprofile')" style="padding:7px 14px;font-size:12px;">My Profile</button>
+      <button class="logout-btn" onclick="handleLogout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Global filter bar -->
+  <div class="filter-bar" id="gfbar">
+    <label>Category</label>
+    <select id="gf-cat" onchange="applyFilters()"><option value="">All</option></select>
+    <label>App</label>
+    <select id="gf-app" onchange="applyFilters()"><option value="">All</option></select>
+    <label>RCA</label>
+    <select id="gf-rca" onchange="applyFilters()"><option value="">All</option></select>
+    <label>Search</label>
+    <input type="text" id="gf-q" placeholder="keyword..." oninput="applyFilters()"/>
+    <span class="filter-count" id="fcount"></span>
+    <button class="filter-pdf" id="download-pdf-btn" onclick="downloadDashboardPdf()">Download PDF</button>
+    <button class="filter-reset" onclick="resetFilters()">Reset filters</button>
+  </div>
+
+  <!-- ── OVERVIEW ── -->
+  <div class="section active" id="tab-overview">
+    <div class="page-header">
+      <div class="page-title">Operations overview</div>
+      <div class="page-sub">Live summary — responds to filters and uploaded data</div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card a-p"><div class="metric-label">Total issues</div><div class="metric-value" id="m-total">—</div><div class="metric-sub">in dataset</div></div>
+      <div class="metric-card a-t"><div class="metric-label">Categories</div><div class="metric-value" id="m-cats">—</div><div class="metric-sub">unique types</div></div>
+      <div class="metric-card a-a"><div class="metric-label">Affected apps</div><div class="metric-value" id="m-apps">—</div><div class="metric-sub">unique systems</div></div>
+      <div class="metric-card a-c"><div class="metric-label">Top risk app</div><div class="metric-value" id="m-top">—</div><div class="metric-sub" id="m-top-sub"> </div></div>
+    </div>
+    <div class="card data-quality-card">
+      <div class="dq-head">
+        <div class="card-title">Data quality health</div>
+        <div class="dq-score" id="dq-score">--</div>
+      </div>
+      <div class="dq-grid" id="dq-grid"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-title">Issues by category</div></div><div id="cat-bars"></div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Issues by app</div></div><div id="app-bars"></div></div>
+    </div>
+    <div class="overview-playbook">
+      <div>
+        <div class="overview-column-title issues"><span class="overview-column-mark">!</span><span>Key issues identified</span></div>
+        <div class="overview-stack" id="ov-key-issues"></div>
+      </div>
+      <div>
+        <div class="overview-column-title steps"><span class="overview-column-mark">+</span><span>Suggested next steps</span></div>
+        <div class="overview-stack" id="ov-next-steps"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">RCA pattern analysis</div></div>
+      <div class="table-wrap">
+        <table class="rca-table">
+          <thead><tr><th>Root cause</th><th>Count</th><th>Severity</th><th>Affected categories</th></tr></thead>
+          <tbody id="rca-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS ── -->
+  <div class="section" id="tab-charts">
+    <div class="page-header">
+      <div class="page-title">Visual analytics</div>
+      <div class="page-sub">Five chart views — all update with filters and uploaded data</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Issues by category + app (with forecast)</div></div>
+      <div class="chart-wrap h260"><canvas id="chCombinedForecast"></canvas></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-title">Category share (doughnut)</div></div><div class="chart-wrap h220"><canvas id="chCatDonut"></canvas></div></div>
+      <div class="card"><div class="card-header"><div class="card-title">App share (polar area)</div></div><div class="chart-wrap h220"><canvas id="chPolar"></canvas></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-title">Top root causes (horizontal)</div></div><div class="chart-wrap h260"><canvas id="chRcaBar"></canvas></div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Category × app matrix</div></div><div class="chart-wrap h260"><canvas id="chBubble"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ── ISSUE EXPLORER ── -->
+  <div class="section" id="tab-issues">
+    <div class="page-header">
+      <div class="page-title">Issue explorer</div>
+      <div class="page-sub">Sortable table — click column headers · paginated · per-column search</div>
+    </div>
+    <input class="search-input" id="tbl-q" placeholder="Search description, RCA, app…" oninput="renderTable()"/>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="padding-left:18px;" onclick="sortTable('cat')" id="th-cat">Category</th>
+              <th onclick="sortTable('desc')" id="th-desc">Description</th>
+              <th onclick="sortTable('rca')" id="th-rca">Root cause</th>
+              <th onclick="sortTable('app')" id="th-app">App</th>
+            </tr>
+          </thead>
+          <tbody id="issue-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- ── CLASSIFIER ── -->
+  <div class="section" id="tab-classifier">
+    <div class="page-header">
+      <div class="page-title">AI issue classifier</div>
+      <div class="page-sub">Describe any IT issue — get instant category, app, and root cause prediction</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Describe the issue</div></div>
+      <textarea class="classifier-input" id="clf-input" placeholder="e.g. Users are unable to login — password seems expired in the system..."></textarea>
+      <br/><button class="classify-btn" onclick="classifyIssue()">Classify issue →</button>
+      <div class="result-panel" id="clf-result"><div id="clf-content"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Quick examples</div></div>
+      <div class="examples-row">
+        <button class="example-chip" onclick="useExample('Database entries are showing CE/CS blank values after the latest sync')">DB blank CE/CS sync</button>
+        <button class="example-chip" onclick="useExample('Customer device is not loading after a plan was added')">Device not loading</button>
+        <button class="example-chip" onclick="useExample('Billing notification was not sent after order placement')">Billing missing</button>
+        <button class="example-chip" onclick="useExample('User account is expired even after password was reset')">Account expired</button>
+        <button class="example-chip" onclick="useExample('ANC and TIBCO are out of sync causing DVC transaction errors')">ANC/TIBCO mismatch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── INSIGHTS ── -->
+  <div class="section" id="tab-insights">
+    <div class="page-header">
+      <div class="page-title">Insights & recommendations</div>
+      <div class="page-sub">Auto-generated from current filtered dataset</div>
+    </div>
+    <div class="card">
+      <div class="summary-head">
+        <div class="card-title">Executive summary</div>
+        <div class="summary-actions">
+          <button class="summary-btn copy" onclick="copyExecutiveSummary()">Copy summary</button>
+          <button class="summary-btn" onclick="gotoTab('mailbox')" style="border-color:rgba(96,200,130,.4);background:linear-gradient(135deg,rgba(96,200,130,.22),rgba(60,180,100,.14));color:#c2f5d4;">&#9993; Mail Box</button>
+        </div>
+      </div>
+      <div class="summary-output" id="exec-summary-output">Summary auto-updates from the current filtered view.</div>
+    </div>
+    <div id="ins-container"></div>
+    <div class="card" style="margin-top:6px;">
+      <div class="card-header"><div class="card-title">App risk heatmap</div></div>
+      <div class="risk-grid" id="risk-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── MAILBOX ── -->
+  <div class="section" id="tab-mailbox">
+    <div class="page-header">
+      <div class="page-title">Mail Box</div>
+      <div class="page-sub">Send the auto-generated executive summary &amp; recommendations via Outlook to <strong>yashikar@amdocs.com</strong></div>
+    </div>
+    <div class="card" style="max-width:780px;">
+      <div class="card-header"><div class="card-title">Email preview</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:center;font-size:13px;">
+          <span style="color:var(--text3);width:60px;flex-shrink:0;">To</span>
+          <span style="color:#c2f5d4;font-family:var(--mono);">yashikar@amdocs.com</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;font-size:13px;">
+          <span style="color:var(--text3);width:60px;flex-shrink:0;">Subject</span>
+          <input id="mail-subject" type="text" value="Amdocs IssueIQ — Executive Summary" style="flex:1;padding:8px 12px;border:1px solid rgba(151,126,255,.32);border-radius:10px;background:linear-gradient(180deg,rgba(19,23,41,.9),rgba(14,16,30,.94));color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s,box-shadow .2s;"/>
+        </div>
+      </div>
+      <div class="card-header" style="margin-top:8px;"><div class="card-title">Body — Executive Summary &amp; Recommendations</div></div>
+      <textarea id="mail-body" rows="14" style="width:100%;padding:14px 15px;background:linear-gradient(180deg,rgba(19,23,41,.92),rgba(14,16,30,.95));border:1px solid rgba(151,126,255,.32);border-radius:12px;color:var(--text);font-size:13px;font-family:var(--mono);resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.65;margin-bottom:16px;" placeholder="Click Refresh to load the latest summary..."></textarea>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="refreshMailBody()" style="padding:10px 20px;border:1px solid rgba(139,124,248,.4);border-radius:999px;background:linear-gradient(135deg,rgba(139,124,248,.24),rgba(109,87,232,.16));color:#e8e1ff;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .2s;">&#8635; Refresh from Insights</button>
+        <button onclick="sendMailbox()" style="padding:10px 24px;border:none;border-radius:999px;background:linear-gradient(135deg,#60c882,#3aad66);color:#fff;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;box-shadow:0 10px 20px rgba(60,180,100,.32);transition:all .2s;">&#9993; Open in Outlook &amp; Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MY PROFILE ── -->
+  <div class="section" id="tab-myprofile">
+    <div class="page-header">
+      <div class="page-title">My Profile</div>
+      <div class="page-sub">Manage your account, view session details, and track activity</div>
+    </div>
+    <div class="grid-2" style="align-items:start;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Profile Information</div></div>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:10px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div class="user-avatar" id="profile-avatar" style="width:64px;height:64px;font-size:24px;border-radius:12px;">U</div>
+            <div>
+              <div style="font-size:20px;font-weight:700;color:#e8ebf8;margin-bottom:4px;" id="profile-username">Admin User</div>
+              <div style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:linear-gradient(135deg,rgba(139,124,248,.3),rgba(139,124,248,.14));color:#d2cbff;border:1px solid rgba(139,124,248,.4);" id="profile-role-badge">Lead QA Engineer</div>
+            </div>
+          </div>
+          <div class="overview-story-card" style="margin:0;">
+            <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Display Name</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="profile-display-name">Admin User</span></div>
+            <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Email</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="profile-email">admin@defecttracker.com</span></div>
+            <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Username</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="profile-username-detail">admin</span></div>
+            <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Role</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="profile-role-detail">Admin</span></div>
+            <div class="aip-row" style="font-size:13px;"><span style="color:#9ea6bc;font-weight:600;">Last Login</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="profile-last-login">Mar 26, 2026, 02:21 PM</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Current Session</div></div>
+        <div style="margin-top:10px;">
+          <div class="aip-row" style="margin-bottom:14px;"><span style="color:#9ea6bc;font-weight:600;font-size:12px;">Status</span><span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(62,207,176,.2);color:#8ff0d8;border:1px solid rgba(62,207,176,.4);" id="session-status">Active</span></div>
+          <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Session ID</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);font-size:11px;" id="session-id">SES-MN78GQES-FB9R</span></div>
+          <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Started</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="session-started">Mar 26, 2026, 02:21 PM</span></div>
+          <div class="aip-row" style="font-size:13px;margin-bottom:10px;"><span style="color:#9ea6bc;font-weight:600;">Duration</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);" id="session-duration">36m</span></div>
+          <div class="aip-row" style="font-size:13px;"><span style="color:#9ea6bc;font-weight:600;">Timeout</span><span style="color:#e8ebf8;font-weight:600;font-family:var(--mono);">30 min inactivity</span></div>
+          <div style="width:100%;height:6px;background:rgba(255,255,255,.08);border-radius:999px;margin-top:12px;overflow:hidden;"><div style="height:100%;background:linear-gradient(90deg,#3ecfb0,#8ff0d8);border-radius:999px;transition:width 1s linear;" id="session-progress"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Session & Login History</div></div>
+      <div style="margin-top:10px;" id="login-history-container">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);margin-bottom:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#8ff0d8;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:#e8ebf8;">Signed in - Current session</div>
+            <div style="font-size:11px;color:#8a8d93;margin-top:2px;" id="history-current-login">Just now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── UPLOAD ── -->
+  <div class="section" id="tab-upload">
+    <div class="page-header">
+      <div class="page-title">Upload dataset</div>
+      <div class="page-sub">Replace the built-in sample with your own CSV or Excel file</div>
+    </div>
+    <label class="upload-drop" id="pg-zone">
+      <input type="file" id="pg-file" accept=".csv,.tsv,.txt,.xlsx,.xls"/>
+      <div class="upload-big-icon">📂</div>
+      <div class="upload-drop-title">Drop your dataset here</div>
+      <div class="upload-drop-sub">Any column names work — you'll map them below.<br/>Supports .csv, .tsv, .txt, .xlsx, .xls with headers.</div>
+      <div class="upload-cta">Browse file</div>
+      <div class="upload-fmt">csv · tsv · txt · xlsx · xls</div>
+    </label>
+    <div class="mapping-wrap" id="map-wrap" style="display:none;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Map your columns</div></div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Match your CSV column names to the four fields used by this dashboard:</p>
+        <div class="map-row"><div class="map-label">Category / Issue type</div><select class="map-select" id="mc-cat"></select></div>
+        <div class="map-row"><div class="map-label">Issue description</div><select class="map-select" id="mc-desc"></select></div>
+        <div class="map-row"><div class="map-label">Root cause (RCA)</div><select class="map-select" id="mc-rca"></select></div>
+        <div class="map-row"><div class="map-label">Responsible app</div><select class="map-select" id="mc-app"></select></div>
+        <button class="apply-btn" onclick="applyMapping()">Apply & load dashboard →</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div class="app-insight-popup" id="app-insight-popup"></div>
+<div class="chat-popup-backdrop" id="chat-backdrop" onclick="closeChatPopup()"></div>
+<div class="chat-popup" id="chat-popup" aria-hidden="true">
+  <div class="chat-shell">
+    <div class="chat-head">
+      <div>
+        <div class="chat-title">AI insights chatbot</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div class="chat-pill" id="chat-dataset-pill" title="">No dataset loaded</div>
+        <button class="chat-maximize" type="button" id="chat-maximize-btn" aria-label="Maximize chatbot" onclick="toggleMaximizeChatPopup()" title="Maximize">&#x26F6;</button>
+        <button class="chat-popup-close" type="button" aria-label="Close chatbot" onclick="closeChatPopup()">×</button>
+      </div>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+    <div class="chat-actions">
+      <div class="chat-quick" id="chat-quick"></div>
+      <div class="chat-form">
+        <input class="chat-input" id="chat-input" type="text" placeholder="Ask about the uploaded dataset..."/>
+        <button class="chat-send" id="chat-send" onclick="submitChatQuestion()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+<button class="chat-fab" id="chat-fab" type="button" onclick="toggleChatPopup()" aria-label="Open AI chatbot">
+  <span class="chat-fab-mark">AI</span>
+  <span>Ask AI</span>
+</button>
+
+<script>
+/* ════════════════════════════════
+   DEFAULT DATA
+════════════════════════════════ */
+const SEED = [
+  {cat:"Database Issues",desc:"DVC_TRX CE/CS/Blank",rca:"ANC/TIBCO mismatch, corrupted cycle tables, 3DS issue",app:"3DS"},
+  {cat:"Database Issues",desc:"3DS/HLRT CE Entries",rca:"3DS service mismatch",app:"3DS"},
+  {cat:"Order Processing Failures",desc:"NotifyBilling Failure",rca:"ABP daemons down",app:"ABP"},
+  {cat:"Device/Plan Loading Issues",desc:"Devices Not Loading",rca:"ACPE down",app:"ACPE"},
+  {cat:"Device/Plan Loading Issues",desc:"Add-ons Not Loading",rca:"AEM config corrupt or dependency down",app:"AEM"},
+  {cat:"Authentication & Registration Issues",desc:"User Expired",rca:"Password expiry in AEM/ASM",app:"AEM"},
+  {cat:"Database Issues",desc:"DVC_TRX CE/CS/Blank",rca:"ANC/TIBCO mismatch, corrupted cycle tables, 3DS issue",app:"ANC"},
+  {cat:"Order Processing Failures",desc:"TriggeringNotification Failure",rca:"ANM down",app:"ANM"},
+  {cat:"CV/Notification Issues",desc:"Notification Engine Issues",rca:"ANM cycle errors",app:"ANM"},
+  {cat:"Address/Customer Flow Issues",desc:"ASM User Expired",rca:"User expiry in ASM",app:"ASM"},
+  {cat:"Authentication & Registration Issues",desc:"User Expired",rca:"Password expiry in AEM/ASM",app:"ASM"},
+  {cat:"Authentication & Registration Issues",desc:"Mobile Registration Failure",rca:"Auth0 failure, subscription ID issue",app:"Auth0"},
+  {cat:"Authentication & Registration Issues",desc:"OTP Not Received",rca:"Email server/Auth0 delay",app:"Auth0"},
+  {cat:"Payment- Related Issues",desc:"Payment Gateway Failure",rca:"Equiniti/Barclays API errors",app:"Barclays"},
+  {cat:"Address/Customer Flow Issues",desc:"Address Not Populating",rca:"OMNI/Couchbase stale cache",app:"Couchbase"},
+  {cat:"Order Processing Failures",desc:"Create Deposit Stuck",rca:"CRM config incorrect",app:"CRM"},
+  {cat:"Payment- Related Issues",desc:"System Date Issue",rca:"Date mismatch in CRM/OMS",app:"CRM"},
+  {cat:"Address/Customer Flow Issues",desc:"Customer Creation Failure",rca:"CRM Customer_ID Sequence Issue",app:"CRM"},
+  {cat:"Address/Customer Flow Issues",desc:"Unique Constraint Errors",rca:"CRM sequence misconfigured",app:"CRM"},
+  {cat:"Delivery/E-Sign Issues",desc:"E-Sign Not Loading",rca:"Token/Equiniti issue",app:"Equiniti"},
+  {cat:"CV/Notification Issues",desc:"Credit Vet Failing",rca:"Experian down, config issue",app:"Experian"},
+  {cat:"Authentication & Registration Issues",desc:"Login Failures",rca:"Token expiry, user expiry",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"ABP Daemons Down",rca:"Memory leak, corrupted jars",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"ENS 100% Space",rca:"Log overflow, no cleanup, logs enabled",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"SE Down",rca:"Daemon crash due to config mismatch",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"ACPE Down",rca:"Missing HF, low memory",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"OMS Down",rca:"Ear corrupted or missing dependency",app:"Infra/Config"},
+  {cat:"Daemon / Server Failures",desc:"DEXP/DEXPS Down",rca:"Missing jar file, Wrong EOD HF provided/HF mismatch",app:"Infra/Config"},
+  {cat:"API/ Server Errors",desc:"404 Errors",rca:"Missing tokens, corrupted deployment",app:"Infra/Config"},
+  {cat:"API/ Server Errors",desc:"Bad Gateway / 500",rca:"Routing/proxy error",app:"Infra/Config"},
+  {cat:"API/ Server Errors",desc:"Apache/Weblogic Crash",rca:"Ear deployment failure",app:"Infra/Config"},
+  {cat:"API/ Server Errors",desc:"Port Binding Issues",rca:"Stale port after crash",app:"Infra/Config"},
+  {cat:"Database Issues",desc:"dvc_trx_repos Mismatch",rca:"Partial HF deployment",app:"Infra/Config"},
+  {cat:"Database Issues",desc:"DB2E Daemons Down",rca:"Disk/temp overflow",app:"Infra/Config"},
+  {cat:"Environment/Infra Issues",desc:"HF Deployment Failure",rca:"Wrong HF, missing VM ID",app:"Infra/Config"},
+  {cat:"Environment/Infra Issues",desc:"Couchbase Stale",rca:"Cache inconsistency",app:"Infra/Config"},
+  {cat:"Environment/Infra Issues",desc:"Pods Down",rca:"Mashrey/Pods not restarting",app:"Mashrey"},
+  {cat:"Device/Plan Loading Issues",desc:"Stock Unavailable Errors",rca:"OMS cache stale or MEC mismatch",app:"MEC"},
+  {cat:"Delivery/E-Sign Issues",desc:"Metapack Delivery Options Missing",rca:"Metapack API outage",app:"Metapack"},
+  {cat:"Address/Customer Flow Issues",desc:"Address Not Populating",rca:"OMNI/Couchbase stale cache",app:"OMNI"},
+  {cat:"Address/Customer Flow Issues",desc:"Address Dropdown Missing",rca:"OMNI ear corrupted",app:"OMNI"},
+  {cat:"Daemon / Server Failures",desc:"OMNI Down",rca:"Cache inconsistency, OMNI ear issue",app:"OMNI"},
+  {cat:"Device/Plan Loading Issues",desc:"Accessories Not Loading",rca:"OMS attribute filter issue",app:"OMS"},
+  {cat:"Device/Plan Loading Issues",desc:"Stock Unavailable Errors",rca:"OMS cache stale or MEC mismatch",app:"OMS"},
+  {cat:"Device/Plan Loading Issues",desc:"Plans Not Loading",rca:"SE not returning data",app:"SE"},
+  {cat:"Device/Plan Loading Issues",desc:"Devices Not Loading",rca:"SE/Solar down",app:"Solar"},
+  {cat:"Daemon / Server Failures",desc:"Solar Down",rca:"Solar error logs, infra restart needed",app:"Solar"},
+  {cat:"Database Issues",desc:"DVC_TRX CE/CS/Blank",rca:"ANC/TIBCO mismatch, corrupted cycle tables, 3DS issue",app:"TIBCO"},
+  {cat:"Database Issues",desc:"MSISDN Not Allocated",rca:"TIBCO pod restart needed",app:"TIBCO"},
+];
+
+let allData = [];
+let filtered = [];
+let csvRaw = [];
+let sortKey = null, sortDir = 1, curPage = 1;
+let datasetLabel = 'No dataset uploaded';
+
+// Initialize auth on page load
+window.addEventListener('DOMContentLoaded', initAuth);
+const PG = 8;
+
+const PAL = ['#8b7cf8','#3ecfb0','#f07060','#f0a030','#4fa3e0','#e06090','#70c870','#c09060','#90b0f0','#e0a060'];
+const TT = {backgroundColor:'#1c1f23',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#e8e9eb',bodyColor:'#8a8d93',padding:10};
+const GRID = 'rgba(255,255,255,.05)';
+const TC = '#8a8d93';
+const charts = {};
+/* ════════════════════════════════
+   AUTH SYSTEM
+════════════════════════════════ */
+let currentUser = null;
+let sessionStartTime = null;
+let sessionId = null;
+const USERS_KEY = 'dashboardUsers';
+const SESSION_KEY = 'currentSession';
+const LAST_LOGIN_KEY = 'lastLoginTime';
+const LOGIN_HISTORY_KEY = 'loginHistory';
+
+function initAuth() {
+  const stored = localStorage.getItem(SESSION_KEY);
+  if (stored) {
+    try {
+      const session = JSON.parse(stored);
+      currentUser = session.user;
+      sessionId = session.sessionId;
+      sessionStartTime = session.startTime;
+      showDashboard();
+    } catch (e) {
+      showAuthModal();
+    }
+  } else {
+    showAuthModal();
+  }
+}
+
+function showAuthModal() {
+  document.getElementById('auth-modal').classList.remove('hidden');
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+function showDashboard() {
+  if (!currentUser) return;
+  document.getElementById('auth-modal').classList.add('hidden');
+  document.getElementById('dashboard').style.display = 'flex';
+  document.getElementById('user-profile').classList.remove('hidden');
+ 
+  const initials = currentUser.username.substring(0, 2).toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').textContent = currentUser.username;
+  document.getElementById('user-role').textContent = currentUser.role || 'User';
+ 
+  updateProfilePage();
+  startSessionTimer();
+}
+
+function toggleAuthMode() {
+  const isLogin = document.getElementById('auth-title').textContent === 'Sign In';
+  const field = document.getElementById('auth-confirm-field');
+  const emailField = document.getElementById('auth-form').querySelector('.auth-field:nth-child(1) label');
+ 
+  if (isLogin) {
+    document.getElementById('auth-title').textContent = 'Create Account';
+    document.getElementById('auth-sub').textContent = 'Register for your account';
+    document.getElementById('auth-submit').textContent = 'Create Account';
+    field.style.display = 'flex';
+    document.getElementById('auth-toggle-text').innerHTML = 'Already have an account? <a onclick="toggleAuthMode()">Sign in</a>';
+  } else {
+    document.getElementById('auth-title').textContent = 'Sign In';
+    document.getElementById('auth-sub').textContent = 'Access your Amdocs IssueIQ Dashboard';
+    document.getElementById('auth-submit').textContent = 'Sign In';
+    field.style.display = 'none';
+    document.getElementById('auth-toggle-text').innerHTML = 'Don\'t have an account? <a onclick="toggleAuthMode()">Create one</a>';
+  }
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function handleAuthSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const remember = document.getElementById('auth-remember').checked;
+  const isLogin = document.getElementById('auth-title').textContent === 'Sign In';
+  const errEl = document.getElementById('auth-error');
+ 
+  if (!username || !password) {
+    errEl.textContent = 'Please fill in all fields';
+    errEl.classList.add('show');
+    return;
+  }
+ 
+  let users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+ 
+  if (isLogin) {
+    const user = users.find(u => u.username === username && u.password === password);
+    if (!user) {
+      errEl.textContent = 'Invalid username or password';
+      errEl.classList.add('show');
+      return;
+    }
+    currentUser = { username: user.username, email: user.email };
+  } else {
+    const confirm = document.getElementById('auth-confirm').value;
+    if (password !== confirm) {
+      errEl.textContent = 'Passwords do not match';
+      errEl.classList.add('show');
+      return;
+    }
+    if (users.find(u => u.username === username)) {
+      errEl.textContent = 'Username already exists';
+      errEl.classList.add('show');
+      return;
+    }
+    const newUser = { username, password, email: username.includes('@') ? username : username + '@dashboard.local' };
+    users.push(newUser);
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    currentUser = { username: newUser.username, email: newUser.email };
+  }
+ 
+  currentUser.role = currentUser.role || (currentUser.username === 'admin' ? 'Admin' : 'User');
+ 
+  if (remember) {
+    sessionId = 'SES-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    sessionStartTime = new Date().toISOString();
+    const lastLogin = localStorage.getItem(LAST_LOGIN_KEY);
+    currentUser.lastLogin = lastLogin || sessionStartTime;
+    localStorage.setItem(LAST_LOGIN_KEY, sessionStartTime);
+   
+    const sessionData = {
+      user: currentUser,
+      sessionId: sessionId,
+      startTime: sessionStartTime
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+   
+    // Log login event
+    addLoginHistory('login', 'Signed in - Current session', sessionStartTime);
+  }
+ 
+  showDashboard();
+  refreshAll();
+}
+
+function handleLogout() {
+  if (confirm('Are you sure you want to logout?')) {
+    // Log logout event with session duration
+    if (sessionStartTime) {
+      const now = new Date();
+      const start = new Date(sessionStartTime);
+      const diffMs = now - start;
+      const diffMins = Math.floor(diffMs / 60000);
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      const durationText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+     
+      addLoginHistory('logout', `Signed out (session: ${durationText})`, now.toISOString());
+    }
+   
+    currentUser = null;
+    sessionStartTime = null;
+    sessionId = null;
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('auth-username').value = '';
+    document.getElementById('auth-password').value = '';
+    document.getElementById('auth-confirm').value = '';
+    document.getElementById('user-profile').classList.add('hidden');
+    toggleAuthMode();
+    showAuthModal();
+  }
+}
+
+const CHAT_QUESTIONS = [
+  {
+    id:'summary',
+    label:'📊 Dataset summary',
+    prompt:'Give me a summary of this dataset',
+    matches:['summary','overview','dataset summary','summarize','tell me about the data','describe the dataset'],
+    answer: buildChatSummary,
+  },
+  {
+    id:'total-count',
+    label:'🔢 Total issue count',
+    prompt:'How many issues are in the dataset?',
+    matches:['how many issues','total issues','issue count','total count','number of issues','count of issues'],
+    answer: buildChatTotalCount,
+  },
+  {
+    id:'risk',
+    label:'🔥 Highest risk app',
+    prompt:'Which application is at highest risk?',
+    matches:['highest risk','risk app','risky application','top risk','most issues','worst app'],
+    answer: buildChatRiskAnswer,
+  },
+  {
+    id:'least-risk',
+    label:'✅ Safest app',
+    prompt:'Which application has the fewest issues?',
+    matches:['fewest issues','least issues','safest app','lowest risk','best performing app','stable app'],
+    answer: buildChatLeastRiskAnswer,
+  },
+  {
+    id:'top-apps',
+    label:'🏆 Top 3 apps by issues',
+    prompt:'Show me the top 3 applications by issue count',
+    matches:['top 3','top three','top apps','top applications','most affected apps','leading apps'],
+    answer: buildChatTopAppsAnswer,
+  },
+  {
+    id:'list-categories',
+    label:'📂 List all categories',
+    prompt:'List all issue categories in the dataset',
+    matches:['list categories','all categories','show categories','what categories','types of issues','issue types'],
+    answer: buildChatListCategoriesAnswer,
+  },
+  {
+    id:'category-breakdown',
+    label:'📈 Category breakdown',
+    prompt:'Show me a breakdown of issues by category',
+    matches:['category breakdown','issues by category','breakdown','category split','category count','per category'],
+    answer: buildChatCategoryBreakdownAnswer,
+  },
+  {
+    id:'affected-apps',
+    label:'🖥️ Affected apps count',
+    prompt:'How many applications are affected?',
+    matches:['how many apps','affected apps','app count','number of apps','applications affected','how many applications'],
+    answer: buildChatAffectedAppsAnswer,
+  },
+  {
+    id:'common-desc',
+    label:'📌 Most common issue',
+    prompt:'What is the most commonly reported issue?',
+    matches:['most common issue','common issue','frequent issue','top issue description','most reported','recurring issue'],
+    answer: buildChatCommonDescAnswer,
+  },
+  {
+    id:'root-cause',
+    label:'🔍 Main root cause',
+    prompt:'What is the top root cause pattern?',
+    matches:['root cause','rca','main cause','top cause','primary cause','leading cause'],
+    answer: buildChatRootCauseAnswer,
+  },
+  {
+    id:'recommendations',
+    label:'💡 Recommendations',
+    prompt:'What recommendations do you have?',
+    matches:['recommend','recommendations','what should we do','next steps','actions','what to do','action plan'],
+    answer: buildChatRecommendationAnswer,
+  },
+  {
+    id:'suggested-fix',
+    label:'🛠️ Suggested fix',
+    prompt:'What is the suggested fix?',
+    matches:['suggested fix','fix suggestion','how to fix','resolution','remediation','how do we fix','fix plan'],
+    answer: buildChatSuggestedFixAnswer,
+  },
+];
+
+/* ════════════════════════════════
+   CHART HELPERS
+════════════════════════════════ */
+function mkChart(id, cfg) {
+  if(charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const el = document.getElementById(id);
+  if(!el) return;
+  charts[id] = new Chart(el, cfg);
+}
+
+/* ════════════════════════════════
+   COUNT
+════════════════════════════════ */
+function countBy(data, key) {
+  const m = {};
+  data.forEach(r => { const v = r[key] || 'Unknown'; m[v] = (m[v]||0)+1; });
+  return Object.entries(m).sort((a,b) => b[1]-a[1]);
+}
+
+function forecastFromCurrent(values, baseGrowth) {
+  return values.map((v, idx) => {
+    const taper = Math.max(0.04, baseGrowth - idx * 0.01);
+    return Math.max(0, Math.round(v * (1 + taper)));
+  });
+}
+
+function severityFromCount(count, total) {
+  const share = total ? count / total : 0;
+  if (share >= 0.34 || count >= 5) return 'critical';
+  if (share >= 0.18 || count >= 3) return 'high';
+  return 'medium';
+}
+
+function inferTags(text) {
+  const value = String(text || '').toLowerCase();
+  const tags = [];
+  if (/mismatch|sync|tibco|anc|3ds|integration/.test(value)) tags.push('Integration');
+  if (/daemon|down|service|queue|restart|availability/.test(value)) tags.push('Service');
+  if (/auth|login|password|expired|session|token|asm|aem/.test(value)) tags.push('Auth');
+  if (/device|plan|cache|load|oms|solar|acpe|couchbase/.test(value)) tags.push('Device');
+  return tags;
+}
+
+function refreshOverviewPlaybook() {
+  const issuesEl = document.getElementById('ov-key-issues');
+  const stepsEl = document.getElementById('ov-next-steps');
+  if (!issuesEl || !stepsEl) return;
+
+  const d = filtered;
+  if (!d.length) {
+    const empty = '<div class="overview-empty">Upload a dataset or relax filters to generate key issues and recommended next steps.</div>';
+    issuesEl.innerHTML = empty;
+    stepsEl.innerHTML = empty;
+    return;
+  }
+
+  const total = d.length;
+  const appC = countBy(d,'app');
+  const rcaC = countBy(d,'rca');
+  const catC = countBy(d,'cat');
+  const topApp = appC[0];
+  const topRca = rcaC[0];
+  const topCat = catC[0];
+  const issueCards = [];
+  const stepCards = [];
+
+  if (topApp) {
+    const [app, count] = topApp;
+    const severity = severityFromCount(count, total);
+    issueCards.push({
+      icon:'A',
+      title:`${app} is carrying the largest defect load`,
+      body:`${app} appears in ${count} of ${total} visible issues (${Math.round(count / total * 100)}%), making it the highest-risk application in the current filtered dataset.`,
+      tags:[`${count} issues`, app, severity],
+      severity,
+    });
+    stepCards.push({
+      title:`Stabilize ${app} first`,
+      body:`Assign clear ownership, tighten alerting, and review the repeat failure path for ${app} before moving to lower-volume systems.`,
+      severity,
+    });
+  }
+
+  if (topRca) {
+    const [rca, count] = topRca;
+    const severity = severityFromCount(count, total);
+    const tags = inferTags(rca);
+    issueCards.push({
+      icon:'R',
+      title:`Root cause pattern repeating: ${rca.length > 42 ? `${rca.slice(0,42)}...` : rca}`,
+      body:`This RCA appears in ${count} issue${count === 1 ? '' : 's'}. Repetition at this level suggests a systemic failure mode rather than isolated tickets.`,
+      tags:[...tags.slice(0,2), severity],
+      severity,
+    });
+    stepCards.push({
+      title:'Convert the top RCA into a runbook',
+      body:`Document a standard recovery path for "${rca}" and add preventive checks so recurring incidents are detected before user impact grows.`,
+      severity,
+    });
+  }
+
+  if (topCat) {
+    const [cat, count] = topCat;
+    const severity = severityFromCount(count, total);
+    issueCards.push({
+      icon:'C',
+      title:`${cat} issues dominate the current dataset`,
+      body:`${count} of ${total} visible issues fall into the ${cat} category. This is the biggest concentration of defects in the current view.`,
+      tags:[cat, `${Math.round(count / total * 100)}% share`, severity],
+      severity,
+    });
+    stepCards.push({
+      title:`Run a focused hardening sprint for ${cat}`,
+      body:`Prioritize backlog cleanup, regression checks, and targeted fixes for the ${cat} issue class to reduce overall incident volume fastest.`,
+      severity,
+    });
+  }
+
+  const multiApp = catC.find(([cat]) => new Set(d.filter(r => r.cat === cat).map(r => r.app).filter(Boolean)).size > 1);
+  if (multiApp) {
+    const [cat] = multiApp;
+    const impactedApps = [...new Set(d.filter(r => r.cat === cat).map(r => r.app).filter(Boolean))].slice(0,4);
+    issueCards.push({
+      icon:'X',
+      title:`${cat} failures span multiple applications`,
+      body:`${impactedApps.join(', ')} all contribute to ${cat} incidents, indicating a cross-system problem path that will be harder to resolve in isolation.`,
+      tags:[...impactedApps.slice(0,3), 'cross-app'],
+      severity:'high',
+    });
+    stepCards.push({
+      title:'Create a cross-system triage path',
+      body:`Review shared dependencies, add correlation identifiers, and align owners across ${impactedApps.join(', ')} so cross-app incidents can be traced end to end.`,
+      severity:'medium',
+    });
+  }
+
+  const patternChecks = [
+    {
+      match: /mismatch|sync|tibco|anc|integration|3ds/i,
+      issueTitle: 'Integration mismatch signals are present',
+      issueBody: 'Issue descriptions or RCAs reference sync or integration mismatches, which usually indicates bad mappings, stale data movement, or reconciliation gaps.',
+      stepTitle: 'Add integration validation and reconciliation checks',
+      stepBody: 'Validate contracts, compare key fields between systems, and alert on mismatch drift before incidents accumulate.',
+      severity: 'critical',
+      tags: ['integration', 'data flow'],
+    },
+    {
+      match: /daemon|queue|service down|service|restart|availability|backlog/i,
+      issueTitle: 'Service stability problems are recurring',
+      issueBody: 'The current dataset includes runtime or queue-related signals that point to daemon failures, backlog pressure, or unstable services.',
+      stepTitle: 'Strengthen runtime monitoring and restart recovery',
+      stepBody: 'Add queue-depth alerts, process health checks, and restart safeguards so service interruptions are recovered earlier.',
+      severity: 'critical',
+      tags: ['runtime', 'monitoring'],
+    },
+    {
+      match: /auth|login|password|expired|session|token|asm|aem/i,
+      issueTitle: 'Authentication or session friction is affecting users',
+      issueBody: 'Login, password, token, or session-related signals are present, which can disrupt access, registration, and day-to-day user flows.',
+      stepTitle: 'Standardize token and credential lifecycle controls',
+      stepBody: 'Apply pre-expiry warnings, dependency checks, and a consistent recovery path for auth failures before they create repeated tickets.',
+      severity: 'high',
+      tags: ['auth', 'session'],
+    },
+    {
+      match: /device|plan|cache|load|oms|solar|acpe|couchbase/i,
+      issueTitle: 'Device or plan-loading signals are visible',
+      issueBody: 'Descriptions indicate loading, cache, or device-related failures that can directly affect customer-facing operations.',
+      stepTitle: 'Review cache invalidation and loading dependencies',
+      stepBody: 'Tighten cache expiry rules, validate dependency health, and add post-deployment checks for device and plan-loading flows.',
+      severity: 'high',
+      tags: ['device', 'cache'],
+    },
+  ];
+
+  const combinedText = d.map(r => `${r.desc || ''} ${r.rca || ''} ${r.app || ''} ${r.cat || ''}`).join(' ');
+  patternChecks.forEach(pattern => {
+    if (pattern.match.test(combinedText)) {
+      issueCards.push({
+        icon:'P',
+        title:pattern.issueTitle,
+        body:pattern.issueBody,
+        tags:[...pattern.tags, pattern.severity],
+        severity:pattern.severity,
+      });
+      stepCards.push({
+        title:pattern.stepTitle,
+        body:pattern.stepBody,
+        severity:pattern.severity,
+      });
+    }
+  });
+
+  const dedupeByTitle = items => items.filter((item, index, arr) => arr.findIndex(other => other.title === item.title) === index);
+  const topIssues = dedupeByTitle(issueCards).slice(0,5);
+  const topSteps = dedupeByTitle(stepCards).slice(0,6);
+
+  issuesEl.innerHTML = topIssues.map(item => `
+    <div class="overview-story-card">
+      <div class="overview-story-head">
+        <div class="overview-story-icon">${item.icon}</div>
+        <div class="overview-story-title">${esc(item.title)}</div>
+      </div>
+      <div class="overview-story-body">${esc(item.body)}</div>
+      <div class="overview-tag-row">${item.tags.map(tag => `<span class="overview-tag ${tag === item.severity ? item.severity : ''}">${esc(tag)}</span>`).join('')}</div>
+    </div>
+  `).join('');
+
+  stepsEl.innerHTML = topSteps.map((item, index) => `
+    <div class="overview-step-card">
+      <div class="overview-step-no">${index + 1}</div>
+      <div class="overview-step-content">
+        <div class="overview-step-title">${esc(item.title)}</div>
+        <div class="overview-step-body">${esc(item.body)}</div>
+        <div class="overview-tag-row"><span class="overview-tag ${item.severity}">${esc(item.severity)}</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════
+   FILTERS
+════════════════════════════════ */
+function populateFilters() {
+  const cats = [...new Set(allData.map(r=>r.cat).filter(Boolean))].sort();
+  const apps = [...new Set(allData.map(r=>r.app).filter(Boolean))].sort();
+  const rcas = [...new Set(allData.map(r=>r.rca).filter(Boolean))].sort();
+  fillSel('gf-cat', cats);
+  fillSel('gf-app', apps);
+  fillSel('gf-rca', rcas);
+}
+function fillSel(id, vals) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All</option>' + vals.map(v => `<option value="${esc(v)}">${v}</option>`).join('');
+  if(vals.includes(cur)) sel.value = cur;
+}
+function applyFilters() {
+  const cat = document.getElementById('gf-cat').value;
+  const app = document.getElementById('gf-app').value;
+  const rca = document.getElementById('gf-rca').value;
+  const q   = document.getElementById('gf-q').value.toLowerCase();
+  filtered = allData.filter(r => {
+    if(cat && r.cat !== cat) return false;
+    if(app && r.app !== app) return false;
+    if(rca && r.rca !== rca) return false;
+    if(q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById('fcount').textContent = `${filtered.length} / ${allData.length} issues`;
+  curPage = 1;
+  refreshAll();
+}
+function setFilterByKey(key, value) {
+  const idMap = {cat:'gf-cat', app:'gf-app', rca:'gf-rca'};
+  const sel = document.getElementById(idMap[key]);
+  if(!sel) return;
+  sel.value = value;
+}
+function resetFilters() {
+  ['gf-cat','gf-app','gf-rca'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('gf-q').value = '';
+  applyFilters();
+}
+function csvCell(v) {
+  const s = String(v == null ? '' : v);
+  return '"' + s.replace(/"/g,'""') + '"';
+}
+function exportFilteredCsv() {
+  if(!filtered.length) {
+    alert('No filtered rows to export.');
+    return;
+  }
+  const rows = ['Category,Description,Root Cause,App'];
+  filtered.forEach(r => {
+    rows.push([
+      csvCell(r.cat),
+      csvCell(r.desc),
+      csvCell(r.rca),
+      csvCell(r.app),
+    ].join(','));
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const safeLabel = datasetLabel.replace(/[^a-z0-9\-_]+/gi,'_').replace(/^_+|_+$/g,'') || 'dataset';
+  const stamp = new Date().toISOString().slice(0,10);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${safeLabel}_filtered_${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+async function downloadDashboardPdf() {
+  const btn = document.getElementById('download-pdf-btn');
+  const main = document.querySelector('.main');
+  if(!main) return;
+
+  const { jsPDF } = window.jspdf || {};
+  if(typeof html2canvas === 'undefined' || !jsPDF) {
+    alert('PDF export library is not loaded. Please refresh and try again.');
+    return;
+  }
+
+  const originalLabel = btn ? btn.textContent : '';
+  if(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Preparing PDF...';
+  }
+
+  closeChatPopup();
+
+  try {
+    const canvas = await html2canvas(main, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#0e0f11',
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: Math.max(main.scrollHeight, window.innerHeight),
+    });
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 8;
+    const printableWidth = pageWidth - margin * 2;
+    const printableHeight = pageHeight - margin * 2;
+
+    const imgData = canvas.toDataURL('image/png');
+    const imgHeight = (canvas.height * printableWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let y = margin;
+    pdf.addImage(imgData, 'PNG', margin, y, printableWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= printableHeight;
+
+    while(heightLeft > 0) {
+      y = margin - (imgHeight - heightLeft);
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', margin, y, printableWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= printableHeight;
+    }
+
+    const safeLabel = (datasetLabel || 'dashboard').replace(/[^a-z0-9\-_]+/gi,'_').replace(/^_+|_+$/g,'') || 'dashboard';
+    const stamp = new Date().toISOString().slice(0,10);
+    pdf.save(`${safeLabel}_dashboard_${stamp}.pdf`);
+  } catch (err) {
+    alert('Unable to generate PDF. Try again after the dashboard fully loads.');
+  } finally {
+    if(btn) {
+      btn.disabled = false;
+      btn.textContent = originalLabel || 'Download PDF';
+    }
+  }
+}
+
+/* ════════════════════════════════
+   METRICS
+════════════════════════════════ */
+function refreshMetrics() {
+  const d = filtered;
+  document.getElementById('m-total').textContent = d.length;
+  document.getElementById('m-cats').textContent = [...new Set(d.map(r=>r.cat).filter(Boolean))].length;
+  document.getElementById('m-apps').textContent = [...new Set(d.map(r=>r.app).filter(Boolean))].length;
+  const top = countBy(d,'app')[0];
+  if(top) {
+    document.getElementById('m-top').textContent = top[0];
+    document.getElementById('m-top-sub').textContent = `${top[1]} issue${top[1]>1?'s':''}`;
+  }
+}
+
+/* ════════════════════════════════
+   BAR ROWS
+════════════════════════════════ */
+const CAT_COLORS = {Database:'#8b7cf8',Order:'#f07060',Device:'#3ecfb0',Auth:'#f0a030'};
+function renderBars(containerId, key) {
+  const entries = countBy(filtered, key);
+  const max = entries[0] ? entries[0][1] : 1;
+  document.getElementById(containerId).innerHTML = entries.slice(0,8).map(([name,cnt],i) => {
+    const color = (key==='cat' ? CAT_COLORS[name] : null) || PAL[i % PAL.length];
+    return `<div class="bar-row">
+      <div class="bar-name" title="${esc(name)}">${name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(cnt/max*100)}%;background:${color};"></div></div>
+      <div class="bar-count">${cnt}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════════════════════════════
+   RCA TABLE
+════════════════════════════════ */
+function refreshRcaTable() {
+  const entries = countBy(filtered,'rca');
+  const max = entries[0] ? entries[0][1] : 1;
+  document.getElementById('rca-tbody').innerHTML = entries.slice(0,8).map(([rca,cnt]) => {
+    const cats = [...new Set(filtered.filter(r=>r.rca===rca).map(r=>r.cat))].join(', ');
+    const pct = cnt/max;
+    const dots3 = Math.ceil(pct*3);
+    const dotHtml = [0,1,2].map(i=>`<span class="heat-dot" style="background:${i<dots3?'#8b7cf8':'#22262b'}"></span>`).join('');
+    const sev = pct>0.66 ? `<span style="color:var(--coral)">Critical</span>` : pct>0.33 ? `<span style="color:var(--amber)">High</span>` : `<span style="color:var(--teal)">Medium</span>`;
+    return `<tr><td style="color:var(--text)">${esc(rca)}</td><td>${dotHtml} ${cnt}</td><td>${sev}</td><td style="color:var(--text3)">${cats}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">No data</td></tr>';
+}
+
+/* ════════════════════════════════
+   ALL CHARTS
+════════════════════════════════ */
+function refreshCharts() {
+  const d = filtered;
+  const catE = countBy(d,'cat'), appE = countBy(d,'app'), rcaE = countBy(d,'rca').slice(0,7);
+  const catL = catE.map(e=>e[0]), catV = catE.map(e=>e[1]);
+  const appL = appE.map(e=>e[0]), appV = appE.map(e=>e[1]);
+  const cats = [...new Set(d.map(r=>r.cat).filter(Boolean))];
+  const apps = [...new Set(d.map(r=>r.app).filter(Boolean))];
+
+  const axisOpts = {
+    x:{ticks:{color:TC,font:{size:11}},grid:{color:GRID}},
+    y:{ticks:{color:TC,font:{size:11},precision:0},grid:{color:GRID}}
+  };
+
+  // Overview donut
+  mkChart('ovDonut',{type:'doughnut',data:{labels:catL,datasets:[{data:catV,backgroundColor:PAL,borderColor:'#15171a',borderWidth:3,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'right',labels:{color:TC,font:{family:"'IBM Plex Sans',sans-serif",size:11},boxWidth:10,boxHeight:10,padding:14}},tooltip:TT}}});
+
+  // Combined category + app with forecast
+  const topCat = catE.slice(0,6);
+  const topApp = appE.slice(0,6);
+  const catLabels = topCat.map(e => `Category: ${e[0]}`);
+  const appLabels = topApp.map(e => `App: ${e[0]}`);
+  const mixLabels = [...catLabels, ...appLabels];
+  const catActual = [...topCat.map(e => e[1]), ...topApp.map(() => null)];
+  const catForecast = [...forecastFromCurrent(topCat.map(e => e[1]), 0.14), ...topApp.map(() => null)];
+  const appActual = [...topCat.map(() => null), ...topApp.map(e => e[1])];
+  const appForecast = [...topCat.map(() => null), ...forecastFromCurrent(topApp.map(e => e[1]), 0.10)];
+
+  mkChart('chCombinedForecast',{
+    data:{
+      labels:mixLabels,
+      datasets:[
+        {type:'bar',label:'Category actual',data:catActual,backgroundColor:'#8b7cf8',borderRadius:4,borderSkipped:false},
+        {type:'line',label:'Category forecast',data:catForecast,borderColor:'#b8afff',backgroundColor:'#b8afff',pointRadius:3,pointHoverRadius:4,tension:0.25,borderDash:[6,4]},
+        {type:'bar',label:'App actual',data:appActual,backgroundColor:'#3ecfb0',borderRadius:4,borderSkipped:false},
+        {type:'line',label:'App forecast',data:appForecast,borderColor:'#89e3cf',backgroundColor:'#89e3cf',pointRadius:3,pointHoverRadius:4,tension:0.25,borderDash:[6,4]}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:TC,font:{size:11},boxWidth:10,boxHeight:10,padding:10}},
+        tooltip:TT
+      },
+      scales:{
+        x:{ticks:{color:TC,font:{size:10},maxRotation:45,minRotation:20},grid:{color:GRID}},
+        y:{beginAtZero:true,ticks:{color:TC,font:{size:11},precision:0},grid:{color:GRID}}
+      }
+    }
+  });
+
+  // Cat doughnut
+  mkChart('chCatDonut',{type:'doughnut',data:{labels:catL,datasets:[{data:catV,backgroundColor:PAL,borderColor:'#15171a',borderWidth:2,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{color:TC,font:{size:11},boxWidth:10,boxHeight:10,padding:10}},tooltip:TT}}});
+
+  // Polar
+  mkChart('chPolar',{type:'polarArea',data:{labels:appL.slice(0,7),datasets:[{data:appV.slice(0,7),backgroundColor:PAL.map(c=>c+'cc'),borderColor:PAL,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:TC,font:{size:11},boxWidth:10,boxHeight:10,padding:10}},tooltip:TT},scales:{r:{ticks:{color:TC,backdropColor:'transparent',font:{size:10}},grid:{color:GRID}}}}});
+
+  // RCA horizontal
+  mkChart('chRcaBar',{type:'bar',data:{labels:rcaE.map(e=>e[0].length>30?e[0].slice(0,30)+'…':e[0]),datasets:[{data:rcaE.map(e=>e[1]),backgroundColor:PAL,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>`${rcaE[c.dataIndex]?.[0]||''}: ${c.raw}`}}},scales:{x:{ticks:{color:TC,font:{size:11},precision:0},grid:{color:GRID}},y:{ticks:{color:TC,font:{size:11}},grid:{color:GRID}}}}});
+
+  // Bubble matrix
+  const bubDs = cats.map((cat,ci)=>({
+    label:cat,
+    data:apps.map((app,ai)=>{
+      const cnt=d.filter(r=>r.cat===cat&&r.app===app).length;
+      return cnt?{x:ai,y:ci,r:Math.max(cnt*6,4)}:null;
+    }).filter(Boolean),
+    backgroundColor:PAL[ci%PAL.length]+'bb',
+    borderColor:PAL[ci%PAL.length],
+    borderWidth:1,
+  }));
+  mkChart('chBubble',{type:'bubble',data:{datasets:bubDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:TC,font:{size:11},boxWidth:10,boxHeight:10,padding:10}},tooltip:{...TT,callbacks:{label:ctx=>`${ctx.dataset.label} × ${apps[ctx.raw.x]}: ${Math.round(ctx.raw.r/6)} issue(s)`}}},scales:{x:{min:-0.5,max:Math.max(apps.length-0.5,0.5),ticks:{color:TC,font:{size:10},callback:(_,i)=>apps[i]||''},grid:{color:GRID}},y:{min:-0.5,max:Math.max(cats.length-0.5,0.5),ticks:{color:TC,font:{size:10},callback:(_,i)=>cats[i]||''},grid:{color:GRID}}}}});
+}
+
+/* ════════════════════════════════
+   TABLE
+════════════════════════════════ */
+function sortTable(key) {
+  if(sortKey===key) sortDir*=-1; else {sortKey=key; sortDir=1;}
+  ['cat','desc','rca','app'].forEach(k=>{
+    const th=document.getElementById('th-'+k);
+    if(th){th.classList.remove('sort-asc','sort-desc');}
+  });
+  const th=document.getElementById('th-'+key);
+  if(th) th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+  curPage=1; renderTable();
+}
+function renderTable() {
+  const q=(document.getElementById('tbl-q').value||'').toLowerCase();
+  let data=[...filtered];
+  if(q) data=data.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+  if(sortKey) data.sort((a,b)=>String(a[sortKey]||'').localeCompare(String(b[sortKey]||''))*sortDir);
+  const total=data.length, pages=Math.max(1,Math.ceil(total/PG));
+  if(curPage>pages) curPage=pages;
+  const slice=data.slice((curPage-1)*PG, curPage*PG);
+  const catBadge = c=>{const m={Database:'badge-db',Order:'badge-order',Device:'badge-device',Auth:'badge-auth'};return `<span class="badge ${m[c]||'badge-app'}">${c||'—'}</span>`;};
+  const tbody=document.getElementById('issue-tbody');
+  tbody.innerHTML=slice.length?slice.map(r=>`<tr>
+    <td style="padding-left:18px;">${catBadge(r.cat)}</td>
+    <td style="color:var(--text)">${esc(r.desc||'—')}</td>
+    <td style="font-size:12px;color:var(--text3);max-width:250px;">${esc(r.rca||'—')}</td>
+    <td><span class="badge badge-app">${esc(r.app||'—')}</span></td>
+  </tr>`).join(''):'<tr class="empty-row"><td colspan="4">No issues match your filters</td></tr>';
+  // pagination
+  const pag=document.getElementById('pagination');
+  if(pages<=1){pag.innerHTML='';return;}
+  let h=`<button class="page-btn" onclick="goPage(${curPage-1})" ${curPage===1?'disabled':''}>‹</button>`;
+  for(let p=1;p<=pages;p++){
+    if(pages>7&&p>2&&p<pages-1&&Math.abs(p-curPage)>1){if(p===3||p===pages-2)h+='<span class="page-info">…</span>';continue;}
+    h+=`<button class="page-btn ${p===curPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  h+=`<button class="page-btn" onclick="goPage(${curPage+1})" ${curPage===pages?'disabled':''}>›</button>`;
+  h+=`<span class="page-info" style="margin-left:8px;">${total} rows</span>`;
+  pag.innerHTML=h;
+}
+function goPage(p){curPage=p;renderTable();}
+
+/* ════════════════════════════════
+   INSIGHTS
+════════════════════════════════ */
+function refreshInsights() {
+  const d=filtered;
+  const appC=countBy(d,'app'), rcaC=countBy(d,'rca'), catC=countBy(d,'cat');
+  const ins=[];
+  if(appC[0]&&appC[0][1]>=2){
+    const[app,cnt]=appC[0];
+    ins.push({c:'var(--coral)',t:`${app} is the highest-risk application`,b:`${app} accounts for ${cnt} of ${d.length} issues (${Math.round(cnt/d.length*100)}%). Recommend dedicated SLA tracking, automated health monitoring, and integration contract review.`});
+  }
+  if(rcaC[0]){
+    const[rca,cnt]=rcaC[0];
+    ins.push({c:'var(--purple)',t:`Top root cause: "${rca.slice(0,50)}"`,b:`This pattern appears in ${cnt} issue${cnt>1?'s':''}. Consider an automated runbook or circuit breaker to prevent recurrence.`});
+  }
+  if(catC[0]){
+    const[cat,cnt]=catC[0];
+    ins.push({c:'var(--teal)',t:`${cat} issues dominate the dataset`,b:`${cnt} of ${d.length} issues (${Math.round(cnt/d.length*100)}%) are in the "${cat}" category. Focused hardening here could cut overall incident volume significantly.`});
+  }
+  const multiApp=catC.filter(([cat])=>[...new Set(d.filter(r=>r.cat===cat).map(r=>r.app))].length>1);
+  if(multiApp.length){
+    const[cat]=multiApp[0];
+    const apps=[...new Set(d.filter(r=>r.cat===cat).map(r=>r.app))];
+    ins.push({c:'var(--amber)',t:`Multiple apps contribute to "${cat}" failures`,b:`Apps ${apps.join(', ')} all generate "${cat}" issues. Cross-app failures are harder to diagnose — a shared observability layer with correlation IDs would help.`});
+  }
+  document.getElementById('ins-container').innerHTML=ins.length?ins.map(i=>`<div class="insight" style="border-color:${i.c}"><div class="insight-title">${i.t}</div><div class="insight-body">${i.b}</div></div>`).join(''):'<div class="insight" style="border-color:var(--text3)"><div class="insight-title">No insights yet</div><div class="insight-body">Adjust filters or upload a dataset.</div></div>';
+  const riskColors=['var(--coral)','var(--amber)','var(--amber)','var(--teal)','var(--teal)','var(--text3)'];
+  const riskLabels=['Critical risk','High risk','High risk','Medium risk','Medium risk','Watch list'];
+  document.getElementById('risk-grid').innerHTML=appC.slice(0,6).map(([app,cnt],i)=>`<div class="risk-card" onmouseenter="showAppInsight(event,'${app}')" onmouseleave="hideAppInsight()"><div class="risk-app">${esc(app)}</div><div class="risk-count" style="color:${riskColors[i]||'var(--text3)'}">${cnt}</div><div class="risk-tag">${riskLabels[i]||'Watch list'}</div></div>`).join('');
+}
+
+function refreshDataQuality() {
+  const d = filtered;
+  const total = d.length;
+  const missingRca = d.filter(r => !String(r.rca || '').trim()).length;
+  const unknownApp = d.filter(r => /^(unknown|n\/a|na|-)$/i.test(String(r.app || '').trim())).length;
+
+  const descCounts = {};
+  d.forEach(r => {
+    const k = String(r.desc || '').trim().toLowerCase();
+    if(!k) return;
+    descCounts[k] = (descCounts[k] || 0) + 1;
+  });
+  const duplicateRows = Object.values(descCounts).reduce((acc, cnt) => acc + Math.max(0, cnt - 1), 0);
+
+  const catNorm = {};
+  d.forEach(r => {
+    const raw = String(r.cat || '').trim();
+    if(!raw) return;
+    const key = raw.toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!catNorm[key]) catNorm[key] = new Set();
+    catNorm[key].add(raw);
+  });
+  const inconsistentCatGroups = Object.values(catNorm).filter(set => set.size > 1).length;
+
+  const pct = n => total ? Math.round((n / total) * 100) : 0;
+  const penalties =
+    Math.round(pct(missingRca) * 0.35) +
+    Math.round(pct(unknownApp) * 0.25) +
+    Math.round(pct(duplicateRows) * 0.25) +
+    Math.min(15, inconsistentCatGroups * 5);
+  const score = Math.max(0, 100 - penalties);
+
+  const scoreEl = document.getElementById('dq-score');
+  const gridEl = document.getElementById('dq-grid');
+  if(!scoreEl || !gridEl) return;
+
+  scoreEl.textContent = total ? `${score}/100` : '--';
+  scoreEl.classList.remove('warn','bad');
+  if(total && score < 65) scoreEl.classList.add('bad');
+  else if(total && score < 82) scoreEl.classList.add('warn');
+
+  gridEl.innerHTML = total ? `
+    <div class="dq-item">
+      <div class="dq-label">Missing RCA</div>
+      <div class="dq-value">${missingRca}</div>
+      <div class="dq-note">${pct(missingRca)}% of visible rows</div>
+    </div>
+    <div class="dq-item">
+      <div class="dq-label">Unknown app</div>
+      <div class="dq-value">${unknownApp}</div>
+      <div class="dq-note">${pct(unknownApp)}% of visible rows</div>
+    </div>
+    <div class="dq-item">
+      <div class="dq-label">Duplicate issues</div>
+      <div class="dq-value">${duplicateRows}</div>
+      <div class="dq-note">repeat descriptions</div>
+    </div>
+    <div class="dq-item">
+      <div class="dq-label">Naming conflicts</div>
+      <div class="dq-value">${inconsistentCatGroups}</div>
+      <div class="dq-note">category naming variants</div>
+    </div>
+  ` : '<div class="overview-empty">No visible rows. Adjust filters to evaluate data quality.</div>';
+}
+
+/* ════════════════════════════════
+   REFRESH ALL
+════════════════════════════════ */
+function refreshAll() {
+  refreshMetrics();
+  refreshDataQuality();
+  renderBars('cat-bars','cat');
+  renderBars('app-bars','app');
+  refreshRcaTable();
+  refreshCharts();
+  refreshOverviewPlaybook();
+  renderTable();
+  refreshInsights();
+  refreshChatbotMeta();
+  generateExecutiveSummary();
+}
+
+/* ════════════════════════════════
+   CHATBOT
+════════════════════════════════ */
+function initChatbot() {
+  document.getElementById('chat-input').addEventListener('keydown', e => {
+    if(e.key === 'Enter') {
+      e.preventDefault();
+      submitChatQuestion();
+    }
+  });
+  document.getElementById('chat-quick').innerHTML = CHAT_QUESTIONS.map(q => `<button class="chat-chip" onclick="askPresetQuestion('${q.id}')">${q.label}</button>`).join('');
+  resetChatbot();
+}
+function openChatPopup() {
+  document.getElementById('chat-popup').classList.add('open');
+  document.getElementById('chat-backdrop').classList.add('open');
+  document.getElementById('chat-popup').setAttribute('aria-hidden','false');
+  window.setTimeout(() => document.getElementById('chat-input').focus(), 40);
+}
+function toggleMaximizeChatPopup() {
+  const popup = document.getElementById('chat-popup');
+  const btn = document.getElementById('chat-maximize-btn');
+  const isMax = popup.classList.toggle('maximized');
+  if(btn) btn.title = isMax ? 'Restore' : 'Maximize';
+  if(btn) btn.innerHTML = isMax ? '&#x2922;' : '&#x26F6;';
+}
+function closeChatPopup() {
+  document.getElementById('chat-popup').classList.remove('open');
+  document.getElementById('chat-backdrop').classList.remove('open');
+  document.getElementById('chat-popup').setAttribute('aria-hidden','true');
+}
+function toggleChatPopup() {
+  const popup = document.getElementById('chat-popup');
+  if(popup.classList.contains('open')) closeChatPopup();
+  else openChatPopup();
+}
+function refreshChatbotMeta() {
+  const pill = document.getElementById('chat-dataset-pill');
+  if(pill) {
+    const label = `${datasetLabel} · ${filtered.length} visible row${filtered.length===1?'':'s'}`;
+    pill.textContent = label;
+    pill.title = label;
+  }
+}
+function resetChatbot() {
+  const body = document.getElementById('chat-body');
+  if(!body) return;
+  body.innerHTML = '';
+  addChatMessage('assistant', `👋 Hello! I am your IT Issue Intelligence assistant.\n\nI can help you explore the loaded dataset with:\n• Summaries & issue counts\n• Top risk & safest apps\n• Category breakdowns\n• Root cause patterns\n• Actionable recommendations & fixes\n\nTry a quick prompt below or type any question to get started!`);
+  refreshChatbotMeta();
+}
+function addChatMessage(role, text) {
+  const body = document.getElementById('chat-body');
+  if(!body) return;
+  const safeText = esc(text);
+  const avatar = role === 'assistant' ? 'AI' : 'YOU';
+  const row = document.createElement('div');
+  row.className = `chat-msg ${role}`;
+  row.innerHTML = `<div class="chat-avatar">${avatar}</div><div class="chat-bubble">${safeText.replace(/\n/g,'<br/>')}</div>`;
+  body.appendChild(row);
+  body.scrollTop = body.scrollHeight;
+}
+function askPresetQuestion(id) {
+  const item = CHAT_QUESTIONS.find(q => q.id === id);
+  if(!item) return;
+  const input = document.getElementById('chat-input');
+  input.value = item.prompt;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+function submitChatQuestion() {
+  const input = document.getElementById('chat-input');
+  const raw = input.value.trim();
+  if(!raw) return;
+  addChatMessage('user', raw);
+  input.value = '';
+  const response = resolveChatAnswer(raw);
+  window.setTimeout(() => addChatMessage('assistant', response), 260);
+}
+function resolveChatAnswer(question) {
+  const normalized = question.toLowerCase().trim();
+
+  // Greetings
+  if(/^(hi+|hello+|hey+|helo+|howdy|greetings|good\s*(morning|afternoon|evening|day)|sup|what'?s up|yo)\b/.test(normalized)) {
+    const greets = [
+      `👋 Hello! Great to have you here. I can answer questions about your IT issue dataset — summaries, risk apps, root causes, category breakdowns, and fixes. What would you like to explore?`,
+      `Hi there! 😊 I'm your dataset insights assistant. Ask me about issue counts, top risk apps, root causes, or recommended actions. Try a quick prompt below!`,
+      `Hey! 👋 Ready to dig into your data. I can break down issues by app, category, or root cause, and suggest fixes. What's on your mind?`,
+    ];
+    return greets[Math.floor(Math.random() * greets.length)];
+  }
+
+  // Identity / capabilities
+  if(/who are you|what are you|your name|what can you do|capabilities|help me|how do you work|what do you know/.test(normalized)) {
+    return `I am the IT Issue Intelligence assistant. 🤖\n\nI analyse the currently loaded issue dataset and can answer:\n• How many issues exist in total\n• Which apps are at highest / lowest risk\n• Category breakdowns and top issue descriptions\n• Root cause patterns and how often they recur\n• Actionable recommendations and suggested fixes\n\nJust type a question or click a quick-prompt chip below!`;
+  }
+
+  // Thanks / acknowledgement
+  if(/^(thanks|thank you|thank|thx|ty|cheers|great|awesome|perfect|nice|good job|well done|excellent)/.test(normalized)) {
+    return `You're welcome! 😊 Let me know if you have more questions about the dataset — I'm here anytime.`;
+  }
+
+  // Farewell
+  if(/^(bye|goodbye|see you|cya|take care|later|quit|exit|close)/.test(normalized)) {
+    return `Goodbye! 👋 Come back anytime you need dataset insights. Stay curious!`;
+  }
+
+  // Dataset question matcher
+  const match = CHAT_QUESTIONS.find(item => item.matches.some(token => normalized.includes(token)));
+  if(match) return match.answer();
+
+  const supported = CHAT_QUESTIONS.map(item => `• ${item.prompt}`).join('\n');
+  return `Hmm, I'm not sure about that one. 🤔 Here are the questions I can answer right now:\n\n${supported}\n\nTry rephrasing or click a quick-prompt chip below!`;
+}
+function buildChatTotalCount() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available. Reset your filters or upload a dataset first.';
+  const cats = new Set(d.map(r => r.cat).filter(Boolean)).size;
+  const apps = new Set(d.map(r => r.app).filter(Boolean)).size;
+  const rcas = new Set(d.map(r => r.rca).filter(Boolean)).size;
+  return `📊 Dataset count summary:\n\n• Total visible issues: ${d.length}\n• Unique issue categories: ${cats}\n• Affected applications: ${apps}\n• Distinct root causes: ${rcas}\n\nDataset: ${datasetLabel}`;
+}
+
+function buildChatLeastRiskAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to assess application performance.';
+  const entries = countBy(d,'app');
+  if(!entries.length) return 'No application data found in the active dataset.';
+  const safest = entries[entries.length - 1];
+  const total = d.length;
+  return `✅ Safest / lowest-risk application: ${safest[0]}\n\nIt appears in only ${safest[1]} of ${total} visible issue${total===1?'':'s'} (${Math.round(safest[1]/total*100)}% share).\n\nThis app is relatively stable compared to others in the dataset. Continue monitoring but no immediate escalation needed.`;
+}
+
+function buildChatTopAppsAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to identify top applications.';
+  const entries = countBy(d,'app').slice(0,3);
+  if(!entries.length) return 'No application data found in the active dataset.';
+  const lines = entries.map(([app,cnt],i) => `${i+1}. ${app} — ${cnt} issue${cnt===1?'':'s'} (${Math.round(cnt/d.length*100)}%)`);
+  return `🏆 Top 3 applications by issue count:\n\n${lines.join('\n')}\n\nThese three applications account for ${Math.round(entries.reduce((s,[,c])=>s+c,0)/d.length*100)}% of all visible issues. Focus remediation effort here first.`;
+}
+
+function buildChatListCategoriesAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to list categories from.';
+  const cats = [...new Set(d.map(r => r.cat).filter(Boolean))].sort();
+  if(!cats.length) return 'No category data found in the active dataset.';
+  return `📂 Issue categories in the current view (${cats.length} total):\n\n${cats.map((c,i) => `${i+1}. ${c}`).join('\n')}\n\nUse the Category filter in the filter bar to focus on any one category.`;
+}
+
+function buildChatCategoryBreakdownAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to generate a category breakdown.';
+  const entries = countBy(d,'cat');
+  if(!entries.length) return 'No category data found in the active dataset.';
+  const lines = entries.map(([cat,cnt]) => `• ${cat}: ${cnt} issue${cnt===1?'':'s'} (${Math.round(cnt/d.length*100)}%)`);
+  return `📈 Category breakdown (${d.length} visible issues):\n\n${lines.join('\n')}\n\nThe top category is "${entries[0][0]}" with ${entries[0][1]} issue${entries[0][1]===1?'':'s'}.`;
+}
+
+function buildChatAffectedAppsAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to count affected applications.';
+  const apps = [...new Set(d.map(r => r.app).filter(Boolean))];
+  const topApp = countBy(d,'app')[0];
+  return `🖥️ Affected applications:\n\n• Total affected apps: ${apps.length}\n• App list: ${apps.join(', ')}\n• Most impacted: ${topApp ? `${topApp[0]} (${topApp[1]} issues)` : 'n/a'}\n\nDataset: ${datasetLabel}`;
+}
+
+function buildChatCommonDescAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows to find the most common issue.';
+  const entries = countBy(d,'desc');
+  if(!entries.length) return 'No issue description data found in the active dataset.';
+  const top = entries[0];
+  const relatedApps = [...new Set(d.filter(r => r.desc === top[0]).map(r => r.app).filter(Boolean))];
+  return `📌 Most commonly reported issue:\n\n"${top[0]}"\n\n• Occurrences: ${top[1]} of ${d.length} visible issues (${Math.round(top[1]/d.length*100)}%)\n• Seen in app${relatedApps.length===1?'':'s'}: ${relatedApps.length ? relatedApps.join(', ') : 'unknown'}\n\nConsider adding this to a known-issues runbook if not already documented.`;
+}
+
+function buildChatSummary() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available. Reset filters or upload a dataset before requesting a summary.';
+  const topCat = countBy(d,'cat')[0];
+  const topApp = countBy(d,'app')[0];
+  const topRca = countBy(d,'rca')[0];
+  return `Summary for ${datasetLabel}:\n\n• Visible issues: ${d.length}\n• Categories: ${new Set(d.map(r => r.cat).filter(Boolean)).size}\n• Applications: ${new Set(d.map(r => r.app).filter(Boolean)).size}\n• Dominant category: ${topCat ? `${topCat[0]} (${topCat[1]})` : 'n/a'}\n• Highest risk app: ${topApp ? `${topApp[0]} (${topApp[1]})` : 'n/a'}\n• Main root cause: ${topRca ? `${topRca[0]} (${topRca[1]})` : 'n/a'}`;
+}
+function buildChatRiskAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available to assess application risk.';
+  const entries = countBy(d,'app');
+  const leader = entries[0];
+  const runnerUp = entries[1];
+  if(!leader) return 'No application data is available in the active dataset.';
+  return `Highest risk application: ${leader[0]}.\n\nIt appears in ${leader[1]} of ${d.length} visible issues.${runnerUp ? ` The next highest is ${runnerUp[0]} with ${runnerUp[1]}.` : ''}\n\nRecommendation: prioritize health checks, alerting, and RCA review for ${leader[0]} first.`;
+}
+function buildChatRootCauseAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available to identify root-cause patterns.';
+  const top = countBy(d,'rca')[0];
+  if(!top) return 'The dataset does not contain usable root-cause values.';
+  const impactedApps = [...new Set(d.filter(r => r.rca === top[0]).map(r => r.app).filter(Boolean))];
+  return `Top root cause pattern: ${top[0]}.\n\nThis shows up in ${top[1]} visible issue${top[1] === 1 ? '' : 's'} and impacts ${impactedApps.length ? impactedApps.join(', ') : 'unknown applications'}.\n\nRecommendation: convert this RCA into a standard remediation playbook and add preventive checks around the affected integration points.`;
+}
+function buildChatRecommendationAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available to generate recommendations.';
+  const topApp = countBy(d,'app')[0];
+  const topCat = countBy(d,'cat')[0];
+  const topRca = countBy(d,'rca')[0];
+  const actions = [
+    topApp ? `1. Focus monitoring and SLA ownership on ${topApp[0]}, which currently has the highest incident count.` : '1. Assign clear service ownership for the highest-volume application.',
+    topCat ? `2. Run a hardening sprint for ${topCat[0]} issues because this category contributes the largest share of current incidents.` : '2. Target the most common issue category with dedicated remediation work.',
+    topRca ? `3. Create an automation or runbook for "${topRca[0]}" because it is the most repeated root-cause pattern.` : '3. Standardize remediation for the most repeated RCA.',
+  ];
+  return `Recommended actions based on the active dataset:\n\n${actions.join('\n')}\n\nThese recommendations are generated from the currently loaded dataset and update as the visible data changes.`;
+}
+function buildChatSuggestedFixAnswer() {
+  const d = filtered;
+  if(!d.length) return 'No visible rows are available to suggest a fix. Reset filters or load data first.';
+  const topRca = countBy(d,'rca')[0];
+  const topApp = countBy(d,'app')[0];
+  const topCat = countBy(d,'cat')[0];
+  const appName = topApp ? topApp[0] : 'the highest-impact application';
+  const catName = topCat ? topCat[0] : 'the dominant issue category';
+
+  if(topRca && /mismatch|sync|tibco|anc/i.test(topRca[0])) {
+    return `Suggested fix:\n\n1. Validate integration contracts and field mappings between systems.\n2. Add automated sync health checks and mismatch alerts for ${appName}.\n3. Reprocess failed records after correcting mapping rules.\n\nReason: the top pattern indicates an integration mismatch issue.`;
+  }
+  if(topRca && /queue|daemon|down|service/i.test(topRca[0])) {
+    return `Suggested fix:\n\n1. Stabilize service runtime with restart policy and liveness checks.\n2. Configure queue depth alerts and autoscaling for ${appName}.\n3. Create a runbook for rapid recovery and backlog drain.\n\nReason: the top pattern points to service availability and queue pressure.`;
+  }
+  if(topRca && /password|expired|auth|login|asm|aem/i.test(topRca[0])) {
+    return `Suggested fix:\n\n1. Enforce credential lifecycle policies with pre-expiry notifications.\n2. Add auth dependency monitoring and fallback handling in ${appName}.\n3. Standardize account recovery flow for faster user restoration.\n\nReason: the top pattern is auth or account lifecycle related.`;
+  }
+
+  return `Suggested fix for current data:\n\n1. Prioritize ${appName} because it has the highest visible issue volume.\n2. Run a focused hardening sprint on ${catName}.\n3. Convert the top recurring RCA into a checklist-based runbook with preventive alerts.\n\nThis is generated from the visible filtered dataset.`;
+}
+
+function executiveSummaryText() {
+  const d = filtered;
+  if(!d.length) {
+    return 'Executive summary\n\nNo visible rows are available in the current view. Clear or adjust filters, then generate again.';
+  }
+  const total = d.length;
+  const topApp = countBy(d,'app')[0];
+  const topCat = countBy(d,'cat')[0];
+  const topRca = countBy(d,'rca')[0];
+  const apps = new Set(d.map(r => r.app).filter(Boolean)).size;
+  const cats = new Set(d.map(r => r.cat).filter(Boolean)).size;
+  const date = new Date().toLocaleDateString();
+
+  const action1 = topApp ? `Stabilize ${topApp[0]} first with tighter health checks and ownership.` : 'Stabilize the top-issue application with tighter health checks and ownership.';
+  const action2 = topCat ? `Launch a focused hardening sprint for ${topCat[0]} incidents.` : 'Launch a focused hardening sprint for the dominant issue category.';
+  const action3 = topRca ? `Convert "${topRca[0]}" into a standard runbook with preventive alerts.` : 'Convert the most repeated root cause into a standard runbook with preventive alerts.';
+
+  return [
+    `Executive summary (${date})`,
+    '',
+    `Dataset: ${datasetLabel}`,
+    `Visible issues: ${total}`,
+    `Coverage: ${cats} categories across ${apps} applications`,
+    '',
+    `Top risk application: ${topApp ? `${topApp[0]} (${topApp[1]} issues)` : 'n/a'}`,
+    `Dominant issue category: ${topCat ? `${topCat[0]} (${topCat[1]} issues)` : 'n/a'}`,
+    `Primary root-cause pattern: ${topRca ? `${topRca[0]} (${topRca[1]} issues)` : 'n/a'}`,
+    '',
+    'Recommended actions (this week):',
+    `1. ${action1}`,
+    `2. ${action2}`,
+    `3. ${action3}`,
+  ].join('\n');
+}
+
+function generateExecutiveSummary() {
+  const out = document.getElementById('exec-summary-output');
+  if(!out) return;
+  out.textContent = executiveSummaryText();
+}
+
+function copyExecutiveSummary() {
+  const out = document.getElementById('exec-summary-output');
+  if(!out) return;
+  const text = out.textContent || '';
+  if(!text.trim()) {
+    alert('Generate summary first.');
+    return;
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => alert('Executive summary copied.'))
+      .catch(() => alert('Unable to copy automatically. Please copy manually.'));
+  } else {
+    alert('Clipboard access is not available in this browser context.');
+  }
+}
+
+/* ════════════════════════════════
+   CLASSIFIER
+════════════════════════════════ */
+function useExample(t){document.getElementById('clf-input').value=t;document.getElementById('clf-result').classList.remove('show');}
+function classifyIssue(){
+  const input=document.getElementById('clf-input').value.trim();
+  if(!input)return;
+  const panel=document.getElementById('clf-result'),content=document.getElementById('clf-content');
+  panel.classList.add('show');
+  content.innerHTML='<span class="loading">Analysing<span class="blink">...</span></span>';
+  setTimeout(()=>{
+    const l=input.toLowerCase();
+    let cat,app,rca,conf,color;
+    if(/blank|ce.*cs|dvc|hlrt|mismatch|tibco|anc|cycle|corrupt/.test(l)){cat='Database issues';app='3DS / ANC/TIBCO';rca='Service mismatch or corrupted cycle tables';conf=91;color='var(--purple)';}
+    else if(/device|addon|add-on|plan|load/.test(l)){cat='Device / plan loading';app='ACPE / AEM';rca='ACPE down or AEM config corrupt';conf=86;color='var(--teal)';}
+    else if(/billing|notify|order|queue|stuck/.test(l)){cat='Order processing';app='ABP / ANC/TIBCO';rca='ABP daemons down or queue backlog';conf=88;color='var(--coral)';}
+    else if(/login|password|expired|user|auth|register|account/.test(l)){cat='Auth & registration';app='AEM / ASM';rca='Password expiry or ASM service down';conf=84;color='var(--amber)';}
+    else{cat='Uncategorised';app='Unknown';rca='No matching pattern — review manually';conf=42;color='#666';}
+    content.innerHTML=`<div class="result-row"><span class="result-key">category</span><span class="result-val">${cat}</span></div><div class="result-row"><span class="result-key">responsible_app</span><span class="result-val">${app}</span></div><div class="result-row"><span class="result-key">probable_rca</span><span class="result-val">${rca}</span></div><div class="confidence-wrap"><div class="confidence-label"><span>confidence</span><span>${conf}%</span></div><div class="confidence-track"><div class="confidence-fill" style="width:${conf}%;background:${color};"></div></div></div>`;
+  },800);
+}
+
+/* ════════════════════════════════
+   FILE UPLOAD
+════════════════════════════════ */
+function handleFile(file) {
+  if(!file) return;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if(['xlsx','xls'].includes(ext)) {
+    parseExcelFile(file);
+    return;
+  }
+  Papa.parse(file,{
+    header:true,
+    skipEmptyLines:true,
+    complete:res=>loadParsedRows(file.name, res.data, res.meta.fields || []),
+    error:()=>alert('Could not parse file — please use a valid CSV or Excel file.')
+  });
+}
+function parseExcelFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const workbook = XLSX.read(e.target.result, {type:'array'});
+      const sheetName = workbook.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {defval:''});
+      const cols = rows.length ? Object.keys(rows[0]) : [];
+      loadParsedRows(file.name, rows, cols);
+    } catch {
+      alert('Could not parse file — please use a valid CSV or Excel file.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function loadParsedRows(fileName, rows, cols) {
+  csvRaw = Array.isArray(rows) ? rows : [];
+  datasetLabel = fileName;
+  showMapping(cols || []);
+  showStatus(`✓ ${fileName} — map columns below`);
+  resetChatbot();
+  gotoTab('upload');
+}
+function showMapping(cols){
+  document.getElementById('map-wrap').style.display='block';
+  const hints={
+    'mc-cat':['category','cat','type','issue_type','issuetype','category_name'],
+    'mc-desc':['description','desc','issue','issue_desc','summary','problem','issue description'],
+    'mc-rca':['rca','root_cause','rootcause','cause','reason','root cause'],
+    'mc-app':['app','application','responsible','system','component','responsible application'],
+  };
+  Object.keys(hints).forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML=cols.map(c=>`<option value="${esc(c)}">${c}</option>`).join('');
+    const auto=cols.find(c=>hints[id].some(h=>c.toLowerCase().replace(/[\s_\-]/g,'').includes(h.replace(/[\s_\-]/g,''))));
+    if(auto) sel.value=auto;
+  });
+}
+function applyMapping(){
+  const get=id=>document.getElementById(id).value;
+  allData=csvRaw.map(row=>({
+    cat:row[get('mc-cat')]||'Unknown',
+    desc:row[get('mc-desc')]||'',
+    rca:row[get('mc-rca')]||'',
+    app:row[get('mc-app')]||'Unknown',
+  })).filter(r=>r.cat||r.desc);
+  filtered=[...allData];
+  populateFilters();
+  resetFilters();
+  showStatus(`✓ ${allData.length} rows loaded`);
+  resetChatbot();
+  gotoTab('overview');
+}
+function showStatus(msg){
+  const el=document.getElementById('sb-status');
+  el.textContent=msg;
+  el.style.display='block';
+}
+
+// Drag & drop
+['sb-zone','pg-zone'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+});
+document.getElementById('sb-file').addEventListener('change',e=>handleFile(e.target.files[0]));
+document.getElementById('pg-file').addEventListener('change',e=>handleFile(e.target.files[0]));
+
+/* ════════════════════════════════
+   TAB NAV
+════════════════════════════════ */
+const TAB_NAMES=['overview','charts','issues','classifier','insights','mailbox','upload','myprofile'];
+function gotoTab(name){
+  document.querySelectorAll('.nav-item').forEach((el,i)=>el.classList.toggle('active',TAB_NAMES[i]===name));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('gfbar').style.display=['classifier','upload','mailbox','myprofile'].includes(name)?'none':'flex';
+  if(name==='mailbox') refreshMailBody();
+  if(name==='myprofile') updateProfilePage();
+  closeChatPopup();
+  if(['charts','overview'].includes(name)) setTimeout(refreshCharts,60);
+}
+
+/* ════════════════════════════════
+   MAILBOX
+════════════════════════════════ */
+function refreshMailBody() {
+  const bodyEl = document.getElementById('mail-body');
+  if(!bodyEl) return;
+  bodyEl.value = executiveSummaryText();
+}
+
+function sendMailbox() {
+  const to = 'yashikar@amdocs.com';
+  const subjectEl = document.getElementById('mail-subject');
+  const bodyEl = document.getElementById('mail-body');
+  const subject = subjectEl ? subjectEl.value.trim() : 'Amdocs IssueIQ — Executive Summary';
+  const body = bodyEl ? bodyEl.value.trim() : executiveSummaryText();
+  if(!body) { alert('No summary to send. Click "Refresh from Insights" first.'); return; }
+  const mailto = 'mailto:' + encodeURIComponent(to)
+    + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body);
+  window.location.href = mailto;
+}
+
+/* ════════════════════════════════
+   APP INSIGHT POPUP
+════════════════════════════════ */
+function showAppInsight(e, app) {
+  const popup = document.getElementById('app-insight-popup');
+  if(!popup) return;
+  const d = filtered.filter(r => r.app === app);
+  const total = filtered.length;
+  const cnt = d.length;
+  const topCat = countBy(d,'cat')[0];
+  const topRca = countBy(d,'rca')[0];
+  const cats = countBy(d,'cat').slice(0,3);
+  const issues = [...new Set(d.map(r=>r.desc).filter(Boolean))].slice(0,4);
+  const share = total ? Math.round(cnt/total*100) : 0;
+
+  popup.innerHTML = `
+    <div class="aip-title">&#128202; ${app}</div>
+    <div class="aip-row"><span class="aip-label">Total issues</span><span class="aip-val">${cnt} (${share}% of dataset)</span></div>
+    <div class="aip-row"><span class="aip-label">Top category</span><span class="aip-val" title="${topCat?topCat[0]:''}">${topCat ? `${topCat[0]} &nbsp;<span style="color:#f0a030">(${topCat[1]})</span>` : 'n/a'}</span></div>
+    <div class="aip-row"><span class="aip-label">Top root cause</span><span class="aip-val" title="${topRca?topRca[0]:''}">${topRca ? (topRca[0].length>32 ? topRca[0].slice(0,32)+'…' : topRca[0]) : 'n/a'}</span></div>
+    ${cats.length > 1 ? `<div class="aip-section">Category breakdown</div>${cats.map(([c,n])=>`<div class="aip-row"><span class="aip-label">${c.length>26?c.slice(0,26)+'…':c}</span><span class="aip-val">${n}</span></div>`).join('')}` : ''}
+    ${issues.length ? `<div class="aip-section">Reported issues</div>${issues.map(iss=>`<div class="aip-issue">• ${esc(iss)}</div>`).join('')}` : ''}
+  `;
+
+  // Position popup near the card, keep within viewport
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const pw = 320, ph = 280;
+  let x = e.clientX + 35;
+  let y = e.clientY - 40;
+  if(x + pw > vw - 10) x = e.clientX - pw - 35;
+  if(y + ph > vh - 10) y = vh - ph - 10;
+  if(y < 10) y = 10;
+  popup.style.left = x + 'px';
+  popup.style.top = y + 'px';
+  popup.classList.add('visible');
+
+  // Keep popup tracking mouse
+  popup._move = function(ev) {
+    let nx = ev.clientX + 35;
+    let ny = ev.clientY - 40;
+    if(nx + pw > vw - 10) nx = ev.clientX - pw - 35;
+    if(ny + ph > vh - 10) ny = vh - ph - 10;
+    if(ny < 10) ny = 10;
+    popup.style.left = nx + 'px';
+    popup.style.top = ny + 'px';
+  };
+  document.addEventListener('mousemove', popup._move);
+}
+
+function hideAppInsight() {
+  const popup = document.getElementById('app-insight-popup');
+  if(!popup) return;
+  popup.classList.remove('visible');
+  if(popup._move) { document.removeEventListener('mousemove', popup._move); popup._move = null; }
+}
+
+/* ════════════════════════════════
+   PROFILE PAGE
+════════════════════════════════ */
+function addLoginHistory(type, message, timestamp) {
+  const history = JSON.parse(localStorage.getItem(LOGIN_HISTORY_KEY) || '[]');
+  history.unshift({
+    type: type,
+    message: message,
+    timestamp: timestamp
+  });
+  // Keep only last 10 entries
+  if (history.length > 10) history.pop();
+  localStorage.setItem(LOGIN_HISTORY_KEY, JSON.stringify(history));
+}
+
+function displayLoginHistory() {
+  const history = JSON.parse(localStorage.getItem(LOGIN_HISTORY_KEY) || '[]');
+  const container = document.getElementById('login-history-container');
+ 
+  if (history.length === 0) {
+    container.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);"><div style="width:8px;height:8px;border-radius:50%;background:#8ff0d8;flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#e8ebf8;">Signed in - Current session</div><div style="font-size:11px;color:#8a8d93;margin-top:2px;" id="history-current-login">Just now</div></div></div>';
+    if (sessionStartTime) {
+      const started = new Date(sessionStartTime).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+      });
+      document.getElementById('history-current-login').textContent = started;
+    }
+    return;
+  }
+ 
+  let html = '';
+  history.forEach((entry, index) => {
+    const formattedTime = new Date(entry.timestamp).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+    });
+   
+    let color = '#8ff0d8'; // login = green
+    if (entry.type === 'logout') color = '#ff9e92'; // logout = red
+    if (entry.type === 'expired') color = '#f0a030'; // expired = orange
+   
+    const marginBottom = index < history.length - 1 ? 'margin-bottom:8px;' : '';
+   
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);${marginBottom}"><div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#e8ebf8;">${esc(entry.message)}</div><div style="font-size:11px;color:#8a8d93;margin-top:2px;">${formattedTime}</div></div></div>`;
+  });
+ 
+  container.innerHTML = html;
+}
+
+function updateProfilePage() {
+  if (!currentUser) return;
+ 
+  // Extract username from email (part before @)
+  const emailUsername = currentUser.email ? currentUser.email.match(/^([^@]+)/)[1] : currentUser.username;
+ 
+  const initials = emailUsername.substring(0, 2).toUpperCase();
+  document.getElementById('profile-avatar').textContent = initials;
+  document.getElementById('profile-username').textContent = currentUser.username;
+  document.getElementById('profile-display-name').textContent = emailUsername;
+  document.getElementById('profile-email').textContent = currentUser.email || 'user@dashboard.local';
+  document.getElementById('profile-username-detail').textContent = emailUsername;
+  document.getElementById('profile-role-detail').textContent = currentUser.role || 'User';
+  document.getElementById('profile-role-badge').textContent = currentUser.role || 'User';
+ 
+  const lastLogin = currentUser.lastLogin ? new Date(currentUser.lastLogin).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+  }) : 'First login';
+  document.getElementById('profile-last-login').textContent = lastLogin;
+ 
+  if (sessionId) {
+    document.getElementById('session-id').textContent = sessionId;
+  }
+ 
+  if (sessionStartTime) {
+    const started = new Date(sessionStartTime).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+    });
+    document.getElementById('session-started').textContent = started;
+    document.getElementById('history-current-login').textContent = started;
+  }
+ 
+  // Display login history
+  displayLoginHistory();
+}
+
+function startSessionTimer() {
+  setInterval(() => {
+    if (!sessionStartTime) return;
+   
+    const now = new Date();
+    const start = new Date(sessionStartTime);
+    const diffMs = now - start;
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+   
+    const durationText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    document.getElementById('session-duration').textContent = durationText;
+   
+    // Update progress bar (30 min = 100%)
+    const progressPercent = Math.min((diffMins / 30) * 100, 100);
+    document.getElementById('session-progress').style.width = progressPercent + '%';
+  }, 1000);
+}
+
+/* ════════════════════════════════
+   UTILS
+════════════════════════════════ */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+
+/* ════════════════════════════════
+   INIT
+════════════════════════════════ */
+window.addEventListener('load',()=>{
+  initChatbot();
+  populateFilters();
+  applyFilters();
+  if(!allData.length){
+    showStatus('Upload a CSV or Excel file to start analysis.');
+    gotoTab('upload');
+  }
+});
+</script>
+</body>
+</html>
